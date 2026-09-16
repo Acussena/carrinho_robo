@@ -8,7 +8,7 @@ Este documento especifica o escopo, priorização de funcionalidades, backlog, d
 
 | Etapa | Critérios de Aceitação / Funcionalidades |
 | :--- | :--- |
-| **MVP (Mínimo Viável)** | - Chassi (4 rodas);<br>- Microcontrolador Arduino (Uno/Nano/Mega);<br>- Ponte H (L298N ou similar) para acionamento dos motores DC;<br>- Fonte de alimentação (suporte de pilhas/bateria com chave L/D);<br>- Controle básico de movimentação (Avançar, Recuar, Virar à Esquerda, Virar à Direita, Parar via Bluetooth/RF/Serial). |
+| **MVP (Mínimo Viável)** | - Chassi (4 rodas);<br>- Microcontrolador Arduino (Uno/Nano/Mega);<br>- Ponte H (L298N ou similar) para acionamento dos motores DC;<br>- Fonte de alimentação (suporte de pilhas/bateria com chave L/D 18650 3.7v);<br>- Controle básico de movimentação (Avançar, Recuar, Virar à Esquerda, Virar à Direita, Parar via Bluetooth/RF/Serial). |
 | **Produto Concluído** | - Carenagem de proteção cortada a laser (MDF/Acrílico) ou impressa em 3D;<br>- Desvio de obstáculos usando Sensor Ultrassônico;<br>- Faróis/Lanternas indicadoras com LEDs;|
 
 ---
