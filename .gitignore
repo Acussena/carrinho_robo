@@ -1,0 +1,6 @@
+# CP2 - ambiente local (não versionar)
+cp2/.venv/
+cp2/ferramentas/
+__pycache__/
+*.pyc
+build/
