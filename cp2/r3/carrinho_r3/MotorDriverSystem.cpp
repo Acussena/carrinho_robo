@@ -70,7 +70,17 @@ void MotorDriverSystem::updateSensors() {
     
     // Update ultrasonic (Appropriate frequency)
     static uint32_t lastUltrasonicUpdate = 0;
-    if (millis() - lastUltrasonicUpdate > 60) { // Update every 60ms
+    if (m_streaming) {
+        // CP2: fixed 20 Hz sampling for the TinyML model
+        if (millis() - lastUltrasonicUpdate >= MotorConfig::STREAM_PERIOD_MS) {
+            lastUltrasonicUpdate = millis();
+            m_sensorData.ultrasonic.distanceCm = sampleUltrasonicFast();
+            m_sensorData.ultrasonic.hasObstacle =
+                m_sensorData.ultrasonic.distanceCm <= MotorConfig::OBSTACLE_DISTANCE;
+            m_sensorData.ultrasonic.lastUpdateTime = lastUltrasonicUpdate;
+            m_newSample = true;
+        }
+    } else if (millis() - lastUltrasonicUpdate > 60) { // Update every 60ms
         lastUltrasonicUpdate = millis();
         updateUltrasonic();
     }
@@ -240,6 +250,37 @@ uint16_t MotorDriverSystem::readUltrasonicDistance() {
     delay(60);
     
     return distance;
+}
+
+/**
+ * @brief CP2: Fast Ultrasonic Reading (no trailing delay)
+ */
+uint16_t MotorDriverSystem::sampleUltrasonicFast() {
+    unsigned long timeout = MotorConfig::STREAM_MAX_CM * 58UL + 2000;
+
+    digitalWrite(MotorPin::ULTRASONIC_TRIG, LOW);
+    delayMicroseconds(2);
+    digitalWrite(MotorPin::ULTRASONIC_TRIG, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(MotorPin::ULTRASONIC_TRIG, LOW);
+
+    unsigned long duration = pulseIn(MotorPin::ULTRASONIC_ECHO, HIGH, timeout);
+    uint16_t distance = duration / 58;
+    if (duration == 0 || distance > MotorConfig::STREAM_MAX_CM) {
+        distance = MotorConfig::STREAM_MAX_CM;  // nothing in front
+    }
+    return distance;
+}
+
+/**
+ * @brief CP2: Take Newest Streamed Sample
+ */
+bool MotorDriverSystem::takeNewSample(uint16_t& distanceCm, uint32_t& timeMs) {
+    if (!m_newSample) return false;
+    m_newSample = false;
+    distanceCm = m_sensorData.ultrasonic.distanceCm;
+    timeMs = m_sensorData.ultrasonic.lastUpdateTime;
+    return true;
 }
 
 /**

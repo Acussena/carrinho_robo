@@ -20,6 +20,7 @@ RobotController::RobotController()
     , m_motorSystem(nullptr)
     , m_modeManager(nullptr)
     , m_commInterface(nullptr)
+    , m_lastTinyMLCommand(0)
 {
     memset(m_commandId, 0, sizeof(m_commandId));
 }
@@ -79,7 +80,16 @@ void RobotController::update() {
         // Other Modes: Update all sensors (Standby, Manual, etc.)
         m_motorSystem->updateSensors();
     }
-    
+
+    // 1.5. CP2: stream ultrasonic samples to the ESP32 ("millis,distance_cm")
+    uint16_t distanceCm;
+    uint32_t sampleTime;
+    if (m_motorSystem->takeNewSample(distanceCm, sampleTime)) {
+        Serial.print(sampleTime);
+        Serial.print(',');
+        Serial.println(distanceCm);
+    }
+
     // 2. Process Inputs (Serial, IR, Buttons) - Must execute, otherwise cannot switch modes
     m_commInterface->processSerialCommands(this);
     m_commInterface->processIRRemote(this);
@@ -112,7 +122,14 @@ void RobotController::setMode(OperationMode mode) {
     if (m_currentMode != mode) {
         m_previousMode = m_currentMode;
         m_currentMode = mode;
-        
+
+        if (mode == OperationMode::TinyML) {
+            // CP2: the ESP32 needs the sensor stream and has TINYML_TIMEOUT_MS to start acting
+            m_motorSystem->stop();
+            m_motorSystem->setStreaming(true);
+            m_lastTinyMLCommand = millis();
+        }
+
         // Debug Output
         Serial.print(F("Mode changed: "));
         Serial.print(static_cast<int>(m_previousMode));
@@ -164,6 +181,13 @@ void RobotController::executeCurrentMode() {
             
         case OperationMode::Programming:
             // Programming Mode (Waiting for commands, no execution needed here)
+            break;
+
+        case OperationMode::TinyML:
+            // CP2: movement comes from command 110 (ESP32); stop if the ESP32 goes silent
+            if (millis() - m_lastTinyMLCommand > TINYML_TIMEOUT_MS) {
+                m_motorSystem->stop();
+            }
             break;
             
         default:

@@ -27,8 +27,12 @@ enum class OperationMode : uint8_t {
     ObstacleAvoidance,  // Obstacle Avoidance Mode
     TargetFollowing,    // Target Following Mode
     ManualControl,      // Manual Control Mode
-    Programming         // Programming Mode (Receive APP commands)
+    Programming,        // Programming Mode (Receive APP commands)
+    TinyML              // CP2: movement decided by the TinyML model running on the ESP32
 };
+
+// CP2 TinyML: stop the car if the ESP32 stops sending actions
+constexpr uint16_t TINYML_TIMEOUT_MS = 1000;
 
 /**
  * @brief Robot Controller Main Class
@@ -91,6 +95,11 @@ public:
      * @return Command identifier string
      */
     const char* getCommandId() const { return m_commandId; }
+
+    /**
+     * @brief CP2: register that the ESP32 sent a TinyML action (feeds the safety timeout)
+     */
+    void markTinyMLCommand() { m_lastTinyMLCommand = millis(); }
     
     // Get subsystem pointers (for use by other modules)
     MotorDriverSystem* getMotorSystem() { return m_motorSystem; }
@@ -102,6 +111,7 @@ private:
     OperationMode m_currentMode;      // Current Operation Mode
     OperationMode m_previousMode;     // Previous Mode
     char m_commandId[16];             // Current Command ID
+    uint32_t m_lastTinyMLCommand;     // CP2: last TinyML action received from the ESP32
     
     // Subsystem Pointers
     MotorDriverSystem* m_motorSystem;           // Motor Driver System

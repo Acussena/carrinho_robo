@@ -140,10 +140,11 @@ private:
     bool m_IRrecv_enabled;          // IR Receive Enabled Flag
     uint8_t m_manualSpeed;          // Manual Control Speed
     uint8_t m_servoAngle;           // Current Servo Angle (0-180, default 90)
+    uint8_t m_tinymlClass;          // CP2: last class predicted by the ESP32 (LED color)
     
     /**
      * @brief Get IR Button Number
-     * @param buttonNum Output Button Number (1-14)
+     * @param buttonNum Output Button Number (1-15)
      * @return true=Success, false=No Button
      */
     bool getIRButton(uint8_t* buttonNum);

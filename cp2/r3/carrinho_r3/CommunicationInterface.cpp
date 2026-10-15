@@ -65,6 +65,9 @@ void CommunicationInterface::initialize() {
     
     // Initialize Servo Angle (Default 90 degrees)
     m_servoAngle = 90;
+
+    // CP2: no prediction received yet
+    m_tinymlClass = 255;
     
     // Initialize Key (Using Interrupt)
     pinMode(KeyConfig::PIN_KEY, INPUT_PULLUP);  // Use internal pull-up
@@ -160,6 +163,8 @@ void CommunicationInterface::executeCommand(int cmdId, RobotController* robot) {
                 robot->setMode(OperationMode::ObstacleAvoidance);
             } else if (mode == 3) {
                 robot->setMode(OperationMode::TargetFollowing);
+            } else if (mode == 4) {
+                robot->setMode(OperationMode::TinyML);  // CP2
             }
             Serial.print(F("{ok}"));
         }
@@ -256,6 +261,29 @@ void CommunicationInterface::executeCommand(int cmdId, RobotController* robot) {
         }
         break;
         
+        case 110: // CP2 TinyML Action {"N":110,"D1":direction,"D2":speed,"D3":class}
+        {
+            StaticJsonDocument<200> doc;
+            deserializeJson(doc, m_serialBuffer);
+            m_tinymlClass = doc["D3"] | 255;
+
+            // Only moves the car while in TinyML mode (IR remote and other modes keep priority)
+            if (robot->getMode() == OperationMode::TinyML) {
+                robot->getModeManager()->executeManualControl(doc["D1"], doc["D2"]);
+                robot->markTinyMLCommand();
+            }
+        }
+        break;
+
+        case 111: // CP2 Ultrasonic Stream On/Off {"N":111,"D1":1}
+        {
+            StaticJsonDocument<200> doc;
+            deserializeJson(doc, m_serialBuffer);
+            robot->getMotorSystem()->setStreaming(doc["D1"] == 1);
+            Serial.print(F("{ok}"));
+        }
+        break;
+
         // TODO: Add implementation for other commands
         // Command 1: Motor Control
         // Command 2: Car Move (Time Limited)
@@ -345,8 +373,16 @@ bool CommunicationInterface::getIRButton(uint8_t* buttonNum) {
             case 71952287UL: // bRECV_9
                 *buttonNum = 14;
                 break;
-            
+            case 16730805:  // aRECV_0 - CP2 TinyML Mode
+                *buttonNum = 15;
+                break;
+
             default:
+                // CP2: show unknown codes so other remotes can be mapped
+                if (ir_results.value != 0xFFFFFFFF) {
+                    Serial.print(F("IR code: "));
+                    Serial.println(ir_results.value);
+                }
                 irrecv.resume();
                 return false;  // No button match
         }
@@ -476,6 +512,14 @@ void CommunicationInterface::processIRRemote(RobotController* robot) {
                     m_manualSpeed = 255;  // Reached max
                 }
             }
+                break;
+            case 15: // Number 0 - CP2 TinyML Mode
+                robot->setMode(OperationMode::TinyML);
+                {
+                    const SensorData& sensorData = robot->getMotorSystem()->getSensorData();
+                    updateLEDStatus(static_cast<uint8_t>(OperationMode::TinyML),
+                                  sensorData.power.isLowBattery);
+                }
                 break;
             default:
                 robot->setMode(OperationMode::Standby);
@@ -668,7 +712,18 @@ void CommunicationInterface::updateLEDStatus(uint8_t mode, bool lowBattery) {
                 FastLED.setBrightness(LEDConfig::DEFAULT_BRIGHTNESS);
                 FastLED.show();
                 break;
-                
+
+            case 6: // CP2 TinyML: color of the predicted class
+                switch (m_tinymlClass) {
+                    case 0:  leds[0] = CRGB::Green;  break;  // livre
+                    case 1:  leds[0] = CRGB::Orange; break;  // aproximando
+                    case 2:  leds[0] = CRGB::Red;    break;  // obstaculo
+                    default: leds[0] = CRGB::Cyan;   break;  // waiting for the ESP32
+                }
+                FastLED.setBrightness(LEDConfig::DEFAULT_BRIGHTNESS);
+                FastLED.show();
+                break;
+
             default:
                 leds[0] = CRGB::White;
                 FastLED.setBrightness(LEDConfig::DEFAULT_BRIGHTNESS);

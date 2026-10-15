@@ -85,6 +85,10 @@ namespace MotorConfig {
     // Ultrasonic Related
     constexpr uint8_t OBSTACLE_DISTANCE = 20;     // Obstacle distance threshold (cm)
     constexpr uint16_t MAX_DISTANCE = 300;        // Max detection distance (cm)
+
+    // CP2 TinyML: fixed-rate sampling streamed to the ESP32
+    constexpr uint8_t STREAM_PERIOD_MS = 50;      // 20 Hz
+    constexpr uint16_t STREAM_MAX_CM = 150;       // No echo / farther than this = STREAM_MAX_CM
 }
 
 /**
@@ -155,8 +159,28 @@ public:
      * @return Distance (cm)
      */
     uint16_t readUltrasonicDistance();
-    
+
+    /**
+     * @brief CP2: enable/disable the fixed-rate ultrasonic stream
+     */
+    void setStreaming(bool enabled) { m_streaming = enabled; }
+
+    /**
+     * @brief CP2: get the newest streamed sample (once per sample)
+     * @return true if there is a sample that was not taken yet
+     */
+    bool takeNewSample(uint16_t& distanceCm, uint32_t& timeMs);
+
 private:
+    // CP2 Stream State
+    bool m_streaming = false;
+    bool m_newSample = false;
+
+    /**
+     * @brief CP2: ultrasonic reading without the 60 ms delay, no echo = STREAM_MAX_CM
+     */
+    uint16_t sampleUltrasonicFast();
+    
     // Sensor Data
     SensorData m_sensorData;
     

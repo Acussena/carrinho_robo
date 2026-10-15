@@ -29,7 +29,7 @@ void setup() {
     
     // Initialization complete prompt (with version info)
     Serial.println(F("========================================"));
-    Serial.println(F("   Smart Robot Car V1.0.1 - Ready!"));
+    Serial.println(F("   Smart Robot Car V1.0.1 + CP2 TinyML"));
     Serial.println(F("========================================"));
 }
 
