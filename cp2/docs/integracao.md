@@ -54,22 +54,31 @@ run_classifier(&sinal, &resultado, false);
 
 | Classe prevista | Comando enviado à R3 | O que o carrinho faz | LED |
 |---|---|---|---|
-| `livre` | `{"N":110,"D1":1,"D2":170,"D3":0}` | frente rápido | verde |
+| `livre` | `{"N":110,"D1":1,"D2":150,"D3":0}` | frente rápido | verde |
 | `aproximando` | `{"N":110,"D1":1,"D2":90,"D3":1}` | frente devagar | laranja |
-| `obstaculo` | ré 400 ms (`D1:2`), giro à direita 450 ms (`D1:4`), parar (`D1:9`) | desvia | vermelho |
+| `obstaculo` | ré 500 ms (`D1:2`), giro à direita 600 ms (`D1:4`), parar (`D1:9`) | desvia | vermelho |
 | `incerto` | mantém o último comando | — | — |
 
 - **Sem bloqueio:** a manobra de desvio não trava o loop. Depois dela a janela é descartada, para o modelo não reagir de novo ao obstáculo antigo.
 - **Comando repetido:** a ESP32 repete o comando a cada 100 ms, o que mantém a R3 dentro do timeout de 1 s.
-- **Segurança:** abaixo de 6 cm a ESP32 manda parar, independente do modelo.
+- **Distância de segurança (20 cm):** com uma das 3 últimas leituras abaixo de 20 cm, o carrinho **não avança mais**. O modelo continua rodando com o carrinho parado e, quando reconhece `obstaculo` ("algo parado perto"), faz a ré e o giro. A ré continua sendo decidida pelo modelo; a regra só impede de seguir em frente.
+
+### Ajustes feitos depois dos testes no chão
+
+| Problema observado | Causa | Ajuste |
+|---|---|---|
+| Carrinho desacelerava, mas encostava na parede e não dava ré | ao chegar perto, a parada de segurança também **parava as inferências**, então o modelo nunca via o carrinho parado perto (`obstaculo`) | a parada de segurança só impede avançar; o modelo continua rodando e decide a ré |
+| Batia na parede vindo rápido | no chão, contra a parede usada, o HC-SR04 **só devolvia eco a partir de ~45 cm**: antes disso media 150 cm, ou seja, `livre` | distância de segurança 10 → 20 cm, velocidade em `livre` 170 → 150, ré e giro mais longos |
+| Leitura sem eco (150) perto da parede escondia o obstáculo | o sensor perde o eco às vezes | a segurança usa a **menor das últimas 3 leituras** |
+| Carrinho "não obedecia ao modelo" | estava sendo dirigido pelas **setas do controle**: qualquer seta tira do modo TinyML e passa para o manual | uso: tecla **0** e não tocar nas setas; **OK** para |
 
 ## Como usar
 
 1. Gravar `r3/carrinho_r3` na R3 (`arduino:avr:uno`, com o cabo "Camera UART" desconectado durante a gravação) e `esp32/carrinho_tinyml` na ESP32-S3 do módulo de câmera (ESP32S3 Dev Module, Flash 8MB QIO, PSRAM OPI, core esp32 2.0.14).
-2. Ligar o carrinho e apertar **0** no controle IR: modo TinyML.
+2. Ligar o carrinho e apertar **0** no controle IR: modo TinyML. **Não tocar nas setas**, porque elas passam para o modo manual.
 3. **OK** sai do modo TinyML. As outras teclas continuam com as funções de fábrica.
 
-A USB da ESP32 (115200) mostra as leituras e cada inferência:
+Para ver as inferências ao vivo, ligue a ESP32 no PC pelo USB-C e abra `MONITOR.bat` (`scripts/monitor.py`). A USB da ESP32 (115200) mostra as leituras e cada inferência:
 
 ```
 # aproximando=0.00 livre=1.00 obstaculo=0.00 (0 ms) -> livre
@@ -85,4 +94,12 @@ A USB da ESP32 (115200) mostra as leituras e cada inferência:
 | Troca de modo e timeout de segurança na R3 | ✅ `Mode changed: 0 -> 6`, motores parados sem comando |
 | Comandos ESP32 → R3 → motores (rodas suspensas, antes do modelo) | ✅ rodas giraram por 3 s e pararam no comando de standby |
 | Modelo do Edge Impulse rodando na ESP32 | ✅ firmware de 342 KB, inferência em menos de 1 ms, classificações em tempo real (log acima) |
-| Carrinho no chão, comandado pelo modelo | ⏳ a fazer: registrar aqui o resultado e o vídeo |
+| Modelo comandando os motores, rodas suspensas, caixa aproximando e parada perto ([log](logs/teste_mesa_rodas_suspensas.txt)) | ✅ `obstaculo` 66–93% com a caixa a 6–25 cm → ré e giro confirmados visualmente; `aproximando` 64–90% com a caixa vindo de 44 → 26 cm |
+| Carrinho no chão, de 1 m até a parede, com o USB ligado para registrar ([log](logs/teste_chao_ate_a_parede.txt)) | ✅ `livre` (sensor sem eco, 150) → `aproximando` 100% a 44 cm → `aproximando` até 22 cm → `obstaculo` 76% → ré (distância volta para 44–58 cm) |
+| Carrinho no chão, sem cabos, tecla 0 | 🎥 vídeo de demonstração gravado pelo grupo |
+
+### Limitações conhecidas
+
+- **Alcance do sensor:** depende da superfície. Em paredes que absorvem o som, ou fora do ângulo, o eco só volta perto (~45 cm no teste). Superfícies duras e de frente funcionam melhor.
+- **Objeto parado a meia distância (30–60 cm):** o modelo fica `incerto` (≈ 50% `aproximando` / 45% `obstaculo`), porque esse caso não estava no dataset. O carrinho mantém a última ação. Uma próxima coleta incluiria essa situação.
+- **Comando por controle:** no modo manual (setas) o modelo não interfere. Um "freio assistido" pelo modelo no modo manual ficou como melhoria futura.
