@@ -35,12 +35,12 @@ const float CONFIANCA_MIN = 0.60;
 
 // ---------- Ações (comando 110 da R3) ----------
 const int DIR_FRENTE = 1, DIR_RE = 2, DIR_DIREITA = 4, DIR_PARAR = 9;
-const int VEL_RAPIDO = 170;
+const int VEL_RAPIDO = 150;
 const int VEL_DEVAGAR = 90;
-const unsigned long TEMPO_RE_MS = 400;
-const unsigned long TEMPO_GIRO_MS = 450;
+const unsigned long TEMPO_RE_MS = 500;
+const unsigned long TEMPO_GIRO_MS = 600;
 const unsigned long REPETE_ACAO_MS = 100;    // mantém a R3 viva (timeout dela é 1 s)
-const int DISTANCIA_EMERGENCIA_CM = 6;       // segurança: para mesmo sem o modelo
+const int DISTANCIA_SEGURANCA_CM = 20;       // segurança: não avança mais perto que isso
 
 enum Classe { LIVRE, APROXIMANDO, OBSTACULO, INCERTO };
 const char* NOME_CLASSE[] = {"livre", "aproximando", "obstaculo", "incerto"};
@@ -48,13 +48,13 @@ const char* NOME_CLASSE[] = {"livre", "aproximando", "obstaculo", "incerto"};
 float janela[N_JANELA];
 int posJanela = 0;
 int amostras = 0;
-int ultimaDistancia = 150;
 unsigned long ultimaLeitura = 0;
 String linha;
 
 int acaoDir = DIR_PARAR, acaoVel = 0;
 Classe classeAtual = INCERTO;
 enum Manobra { NENHUMA, RE, GIRO } manobra = NENHUMA;
+bool pausado = false;
 unsigned long inicioManobra = 0;
 
 // ================= Comunicação com a R3 =================
@@ -88,7 +88,6 @@ void receberDaR3() {
       janela[posJanela] = cm;
       posJanela = (posJanela + 1) % N_JANELA;
       if (amostras < N_JANELA) amostras++;
-      ultimaDistancia = cm;
       ultimaLeitura = millis();
       Serial.printf("%lu,%d\n", t, cm);
     }
@@ -105,12 +104,28 @@ void repassarDoPC() {
     if (c == '{') comando = "";
     comando += c;
     if (c == '}') {
-      Serial2.print(comando);
-      Serial.printf("# repassado a R3: %s\n", comando.c_str());
+      if (comando == "{\"P\":1}" || comando == "{\"P\":0}") {
+        // pausa o modelo (testes pelo PC): a ESP32 para de mandar ações à R3
+        pausado = comando == "{\"P\":1}";
+        Serial.printf("# modelo %s\n", pausado ? "PAUSADO" : "ativo");
+      } else {
+        Serial2.print(comando);
+        Serial.printf("# repassado a R3: %s\n", comando.c_str());
+      }
       comando = "";
     }
   }
 }
+
+// menor das últimas 3 leituras: uma leitura sem eco (150) não esconde a parede
+int distanciaRecente() {
+  int menor = 150;
+  for (int i = 1; i <= 3 && i <= amostras; i++)
+    menor = min(menor, (int)janela[(posJanela - i + N_JANELA) % N_JANELA]);
+  return menor;
+}
+
+bool pertoDemais() { return distanciaRecente() < DISTANCIA_SEGURANCA_CM; }
 
 // ================= Inferência =================
 
@@ -147,9 +162,16 @@ Classe classificar() {
 }
 
 void agir(Classe c) {
-  Serial.printf(" -> %s\n", NOME_CLASSE[c]);
+  bool perto = pertoDemais();
+  Serial.printf(" -> %s%s\n", NOME_CLASSE[c], perto && c != OBSTACULO ? " (parado: muito perto)" : "");
   if (c == INCERTO) return;  // mantém a ação anterior
   classeAtual = c;
+  if (perto && c != OBSTACULO) {
+    // não avança contra a parede; o modelo continua rodando e decide a ré
+    // quando reconhecer o obstáculo parado à frente
+    enviarAcao(DIR_PARAR, 0, c);
+    return;
+  }
   switch (c) {
     case LIVRE:       enviarAcao(DIR_FRENTE, VEL_RAPIDO, c);  break;
     case APROXIMANDO: enviarAcao(DIR_FRENTE, VEL_DEVAGAR, c); break;
@@ -208,16 +230,16 @@ void loop() {
     return;
   }
   digitalWrite(PINO_LED, HIGH);
+  if (pausado) return;
 
   if (!executandoManobra()) {
-    if (ultimaDistancia < DISTANCIA_EMERGENCIA_CM) {
-      if (acaoDir != DIR_PARAR) enviarAcao(DIR_PARAR, 0, OBSTACULO);
-    } else {
-      static unsigned long proximaInferencia = 0;
-      if (amostras == N_JANELA && millis() >= proximaInferencia) {
-        proximaInferencia = millis() + INTERVALO_INFERENCIA_MS;
-        agir(classificar());
-      }
+    // segurança entre inferências: para na hora se chegou perto demais andando
+    if (acaoDir == DIR_FRENTE && pertoDemais()) enviarAcao(DIR_PARAR, 0, classeAtual);
+
+    static unsigned long proximaInferencia = 0;
+    if (amostras == N_JANELA && millis() >= proximaInferencia) {
+      proximaInferencia = millis() + INTERVALO_INFERENCIA_MS;
+      agir(classificar());
     }
   }
 
