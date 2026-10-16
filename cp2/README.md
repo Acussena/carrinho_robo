@@ -34,7 +34,7 @@ Nenhum fio novo: tudo passa pelo cabo original entre o shield e o módulo de câ
 | `aproximando` | frente devagar | laranja |
 | `obstaculo` | ré e gira (desvia) | vermelho |
 
-Abaixo de 6 cm a ESP32 manda parar por segurança, independente do modelo. Se a ESP32 ficar 1 s sem mandar ação, a R3 para sozinha.
+A menos de 20 cm o carrinho não avança mais (segurança); o modelo continua rodando e decide a ré ao reconhecer `obstaculo`. Se a ESP32 ficar 1 s sem mandar ação, a R3 para sozinha.
 
 ### Controle remoto IR
 
@@ -42,7 +42,7 @@ Os comandos de fábrica continuam iguais (setas, OK, 1 seguidor de linha, 2 desv
 
 | Tecla | Ação |
 |---|---|
-| **0** | modo **TinyML**: o modelo dirige (LED ciano até chegar a primeira inferência) |
+| **0** | modo **TinyML**: o modelo dirige (LED ciano até chegar a primeira inferência). Não use as setas: elas passam para o modo manual |
 | OK | sai do modo TinyML (standby) |
 
 ## Estrutura
