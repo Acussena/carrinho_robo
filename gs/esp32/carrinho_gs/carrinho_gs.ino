@@ -3,7 +3,7 @@
  * ESP32-S3 do módulo de câmera do kit LAFVIN (evolução do CP2)
  *
  *   HC-SR04 + seguidor de linha (piso) + bateria ──► R3 (20 Hz)
- *        "millis,cm,L,M,R,V10,desnivel" ──► ESP32-S3
+ *        "millis,cm,L,M,R,V10,desnivel,modo" ──► ESP32-S3
  *                                            ├─ modelo TinyML (obstáculo à frente)
  *                                            ├─ detecção de desnível (buraco/degrau/meio-fio)
  *                                            ├─ decisão autônoma (normal / cauteloso / bateria)
@@ -98,6 +98,9 @@ int pisoL = 0, pisoM = 0, pisoR = 0;
 int bateriaV10 = 0;
 bool desnivel = false;
 bool pisoDisponivel = false;       // R3 com firmware da GS enviando o sensor de piso
+bool patrulhando = false;          // R3 no modo autônomo (TinyML); fora dele não há ocorrência de barreira
+const int MODO_R3_AUTONOMO = 6;
+const int BATERIA_AUSENTE_V10 = 55; // abaixo de 5,5 V: chave da bateria desligada, placa só na USB
 float prob[3] = {0, 0, 0};         // aproximando, livre, obstaculo (ordem do modelo)
 String nomeProb[3] = {"", "", ""};
 Classe ultimaPredicao = INCERTO;
@@ -154,16 +157,16 @@ void enviarAcao(int dir, int vel, Classe c) {
   Serial2.printf("{\"N\":110,\"D1\":%d,\"D2\":%d,\"D3\":%d}", dir, vel, codigoClasse(c));
 }
 
-// aceita "millis,cm" (R3 do CP2) e "millis,cm,L,M,R,V10,desnivel" (R3 da GS)
+// aceita "millis,cm" (R3 do CP2) e "millis,cm,L,M,R,V10,desnivel,modo" (R3 da GS)
 // "{ok}1163,30" -> descarta o que vier antes do último '}'
 bool lerAmostra(String s) {
   s = s.substring(s.lastIndexOf('}') + 1);
   s.trim();
   if (s.length() == 0 || !isDigit(s[0])) return false;
   unsigned long t;
-  int cm, l, m, r, v, d;
-  int n = sscanf(s.c_str(), "%lu,%d,%d,%d,%d,%d,%d", &t, &cm, &l, &m, &r, &v, &d);
-  if (n != 2 && n != 7) return false;
+  int cm, l, m, r, v, d, modo = MODO_R3_AUTONOMO;
+  int n = sscanf(s.c_str(), "%lu,%d,%d,%d,%d,%d,%d,%d", &t, &cm, &l, &m, &r, &v, &d, &modo);
+  if (n != 2 && n != 7 && n != 8) return false;
   if (cm < 0 || cm > 400) return false;
 
   distAtual = cm;
@@ -171,7 +174,8 @@ bool lerAmostra(String s) {
   posJanela = (posJanela + 1) % N_JANELA;
   if (amostras < N_JANELA) amostras++;
 
-  if (n == 7) {
+  if (n >= 7) {
+    patrulhando = modo == MODO_R3_AUTONOMO;
     pisoL = l; pisoM = m; pisoR = r;
     bateriaV10 = v;
     desnivel = d == 1;
@@ -179,6 +183,7 @@ bool lerAmostra(String s) {
   } else {
     pisoDisponivel = false;
     desnivel = false;
+    patrulhando = true;   // R3 do CP2 não informa o modo
   }
   Serial.printf("%lu,%d\n", t, cm);
   return true;
@@ -199,6 +204,9 @@ void receberDaR3() {
 // ================= Ocorrências =================
 
 void registrarEvento(TipoEvento tipo, float confianca) {
+  // barreiras só contam durante a patrulha (com o carrinho em standby o modelo continua
+  // rodando, mas o carrinho não está percorrendo o trajeto)
+  if ((tipo == EV_OBSTACULO || tipo == EV_DESNIVEL || tipo == EV_TRECHO_CRITICO) && !patrulhando) return;
   Evento& e = eventos[(proximoIdEvento - 1) % N_EVENTOS];
   e.id = proximoIdEvento++;
   e.t = millis();
@@ -233,7 +241,11 @@ void atualizarAutonomia() {
     cautela = false;
     Serial.println("# fim do modo cauteloso");
   }
-  if (!pisoDisponivel || bateriaV10 <= 0) return;
+  if (!pisoDisponivel || bateriaV10 < BATERIA_AUSENTE_V10) {   // sem leitura ou só na USB
+    inicioBateriaBaixa = 0;
+    bateriaBaixa = false;
+    return;
+  }
   if (bateriaV10 < BATERIA_BAIXA_V10) {
     if (inicioBateriaBaixa == 0) inicioBateriaBaixa = millis();
     if (!bateriaBaixa && millis() - inicioBateriaBaixa > BATERIA_CONFIRMA_MS) {
@@ -414,14 +426,15 @@ String jsonStatus() {
   snprintf(buf, sizeof(buf),
     "{\"uptime_ms\":%lu,\"r3_ok\":%s,\"dist_cm\":%d,"
     "\"piso\":{\"disponivel\":%s,\"l\":%d,\"m\":%d,\"r\":%d,\"limiar\":%d,\"desnivel\":%s},"
-    "\"bateria_v\":%.1f,\"bateria_baixa\":%s,"
+    "\"patrulhando\":%s,\"bateria_v\":%.1f,\"bateria_ligada\":%s,\"bateria_baixa\":%s,"
     "\"modelo\":{\"classe\":\"%s\",\"confianca\":%.2f,\"tempo_ms\":%d,\"probs\":{\"%s\":%.2f,\"%s\":%.2f,\"%s\":%.2f}},"
     "\"decisao\":{\"classe\":\"%s\",\"dir\":%d,\"vel\":%d,\"manobra\":\"%s\",\"cautela\":%s,\"pausado\":%s},"
     "\"contagem\":{\"obstaculo\":%lu,\"desnivel\":%lu,\"trecho_critico\":%lu,\"bateria_baixa\":%lu,\"falha_r3\":%lu},"
     "\"ultimo_evento\":%lu,\"wifi_rssi\":%d}",
     millis(), r3Ok ? "true" : "false", distAtual,
     pisoDisponivel ? "true" : "false", pisoL, pisoM, pisoR, limiarPiso, desnivel ? "true" : "false",
-    bateriaV10 / 10.0, bateriaBaixa ? "true" : "false",
+    patrulhando ? "true" : "false", bateriaV10 / 10.0,
+    bateriaV10 >= BATERIA_AUSENTE_V10 ? "true" : "false", bateriaBaixa ? "true" : "false",
     NOME_CLASSE[ultimaPredicao], confiancaUltima, tempoInferenciaMs,
     nomeProb[0].c_str(), prob[0], nomeProb[1].c_str(), prob[1], nomeProb[2].c_str(), prob[2],
     NOME_CLASSE[classeAtual], acaoDir, acaoVel, NOME_MANOBRA[manobra],

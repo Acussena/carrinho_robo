@@ -176,7 +176,7 @@ public:
     }
 
     /**
-     * @brief GS: stream mode. 0 off, 1 CP2 ("millis,cm"), 2 GS ("millis,cm,L,M,R,V10,cliff")
+     * @brief GS: stream mode. 0 off, 1 CP2 ("millis,cm"), 2 GS ("millis,cm,L,M,R,V10,cliff,mode")
      */
     void setStreamMode(uint8_t mode) { m_streamMode = mode > 2 ? 2 : mode; m_streaming = m_streamMode != 0; }
     uint8_t getStreamMode() const { return m_streamMode; }

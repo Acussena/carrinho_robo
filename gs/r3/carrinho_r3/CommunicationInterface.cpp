@@ -288,7 +288,7 @@ void CommunicationInterface::executeCommand(int cmdId, RobotController* robot) {
         {
             StaticJsonDocument<200> doc;
             deserializeJson(doc, m_serialBuffer);
-            // CP2: 1 = "millis,cm" | GS: 2 = "millis,cm,L,M,R,V10,cliff" | 0 = off
+            // CP2: 1 = "millis,cm" | GS: 2 = "millis,cm,L,M,R,V10,cliff,mode" | 0 = off
             robot->getMotorSystem()->setStreamMode((uint8_t)(doc["D1"] | 0));
             Serial.print(F("{ok}"));
         }

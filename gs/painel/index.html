@@ -167,10 +167,11 @@ async function atualizar() {
     const acoes = {1: "frente", 2: "ré", 3: "esquerda", 4: "direita", 9: "parado"};
     $("decisao").textContent = (dc.pausado ? "IA pausada" : (acoes[dc.dir] || "--") + (dc.vel ? " · vel " + dc.vel : ""));
     $("decisao").className = "pill c-" + (dc.classe || "incerto");
-    $("cautela").textContent = dc.cautela ? "modo cauteloso" : (s.bateria_baixa ? "economia (bateria)" : "modo normal");
-    $("cautela").className = "pill " + (dc.cautela || s.bateria_baixa ? "sev-media" : "sev-baixa");
+    const parado = s.patrulhando === false;
+    $("cautela").textContent = parado ? "standby (aperte Iniciar ou tecla 0)" : dc.cautela ? "modo cauteloso" : (s.bateria_baixa ? "economia (bateria)" : "patrulhando");
+    $("cautela").className = "pill " + (parado ? "sev-info" : dc.cautela || s.bateria_baixa ? "sev-media" : "sev-baixa");
     $("manobra").textContent = dc.manobra && dc.manobra !== "nenhuma" ? "manobra: " + dc.manobra : "";
-    $("bateria").textContent = s.bateria_v ? s.bateria_v.toFixed(1) + " V" : "--";
+    $("bateria").textContent = s.bateria_ligada === false ? "desligada (só USB)" : s.bateria_v ? s.bateria_v.toFixed(1) + " V" : "--";
     $("uptime").textContent = s.uptime_ms ? "ligado há " + Math.round(s.uptime_ms / 1000) + " s" : "";
     const c = s.contagem || {};
     $("n-desnivel").textContent = c.desnivel || 0;

@@ -33,7 +33,7 @@ O mesmo uso vale para o campo: trilhas e acessos de escolas rurais, ou postos de
  ┌──────────────── Carrinho (autônomo, não depende do PC) ────────────────┐
  │                                                                         │
  │  HC-SR04 ─┐                                                             │
- │  Piso IR ─┼─► R3 (UNO) 20 Hz ── "millis,cm,L,M,R,V10,desnível" ──►  ESP32-S3
+ │  Piso IR ─┼─► R3 (UNO) 20 Hz ── "millis,cm,L,M,R,V10,desnível,modo" ──►  ESP32-S3
  │  Bateria ─┘    │  motores TB6612, IR, LED          (cabo Camera UART)  │ TinyML (obstáculo)
  │                │  segurança local: não avança                          │ detecção de desnível
  │                │  sobre desnível; para sem ESP32                       │ decisão autônoma

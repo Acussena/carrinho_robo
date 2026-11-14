@@ -26,12 +26,15 @@ O robô **nunca** depende do PC para se mover com segurança. O painel acrescent
 
 | Comando | Sentido | Efeito |
 |---|---|---|
-| `{"N":111,"D1":2}` | ESP32 → R3 | **GS:** envia `millis,cm,L,M,R,V10,desnivel` a cada 50 ms (`D1:1` = formato do CP2, `D1:0` = desliga) |
+| `{"N":111,"D1":2}` | ESP32 → R3 | **GS:** envia `millis,cm,L,M,R,V10,desnivel,modo` a cada 50 ms (`D1:1` = formato do CP2, `D1:0` = desliga) |
 | `{"N":112,"D1":850}` | ESP32 → R3 | **GS:** limiar do sensor de piso (100–1023) |
 | `{"N":101,"D1":4}` / `{"N":101,"D1":0}` | ESP32 → R3 | entra no modo autônomo (= tecla 0) / **GS:** volta ao standby |
 | `{"N":110,"D1":dir,"D2":vel,"D3":classe}` | ESP32 → R3 | ação; `D3` = cor do LED: 0 livre, 1 aproximando, 2 obstáculo, **3 desnível (roxo)** |
 
-Exemplo de linha: `48213,37,212,198,240,78,0` = 48,2 s, 37 cm à frente, piso [212, 198, 240], bateria 7,8 V, sem desnível.
+Exemplo de linha: `48213,37,212,198,240,78,0,6` = 48,2 s, 37 cm à frente, piso [212, 198, 240], bateria 7,8 V, sem desnível, modo 6 (patrulha autônoma).
+
+- **modo**: com a R3 fora do modo autônomo (standby, manual), o modelo continua rodando e o painel continua recebendo os sensores, mas obstáculos e desníveis **não viram ocorrência**, porque o carrinho não está percorrendo o trajeto.
+- **bateria < 5,5 V** = chave da bateria desligada e placa alimentada só pela USB: não gera alerta de bateria baixa, e o painel mostra "desligada (só USB)".
 
 **Segurança dupla para o desnível:**
 1. A **R3** guarda a última direção pedida. Se for para frente (1, 5 ou 7) e o desnível estiver confirmado, ela **para os motores na hora**, sem esperar a ESP32, e recusa novos comandos de frente.

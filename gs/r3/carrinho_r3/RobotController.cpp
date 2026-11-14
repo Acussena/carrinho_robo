@@ -89,7 +89,7 @@ void RobotController::update() {
         Serial.print(sampleTime);
         Serial.print(',');
         if (m_motorSystem->getStreamMode() == 2) {
-            // GS: "millis,cm,L,M,R,V10,cliff" (floor sensors, battery x10, drop flag)
+            // GS: "millis,cm,L,M,R,V10,cliff,mode" (floor sensors, battery x10, drop flag, operation mode)
             const SensorData& s = m_motorSystem->getSensorData();
             Serial.print(distanceCm);
             Serial.print(',');
@@ -101,7 +101,9 @@ void RobotController::update() {
             Serial.print(',');
             Serial.print((int)(s.power.voltage * 10));
             Serial.print(',');
-            Serial.println(m_motorSystem->cliffDetected() ? 1 : 0);
+            Serial.print(m_motorSystem->cliffDetected() ? 1 : 0);
+            Serial.print(',');
+            Serial.println(static_cast<int>(m_currentMode));   // 6 = TinyML (patrol)
         } else {
             Serial.println(distanceCm);
         }
