@@ -68,7 +68,8 @@ const unsigned long REPETE_ACAO_MS = 100;    // mantém a R3 viva (timeout dela 
 const int DISTANCIA_SEGURANCA_CM = 20;
 
 // ---------- Sensor de piso (seguidor de linha) ----------
-int limiarPiso = 850;                         // enviado à R3 (comando 112); ajustável pelo painel
+// calibrado no carrinho: piso = 0, sem piso (frente levantada 10 cm) = ~740 -> limiar no meio, com folga
+int limiarPiso = 550;                         // enviado à R3 (comando 112); ajustável pelo painel
 
 // ---------- Autonomia: trecho crítico e bateria ----------
 const unsigned long JANELA_CRITICA_MS = 30000;  // 2+ ocorrências em 30 s = trecho crítico

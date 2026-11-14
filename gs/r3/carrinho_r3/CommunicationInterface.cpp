@@ -294,7 +294,7 @@ void CommunicationInterface::executeCommand(int cmdId, RobotController* robot) {
         }
         break;
 
-        case 112: // GS Drop Threshold {"N":112,"D1":850}
+        case 112: // GS Drop Threshold {"N":112,"D1":550}
         {
             StaticJsonDocument<200> doc;
             deserializeJson(doc, m_serialBuffer);

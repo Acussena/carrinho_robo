@@ -159,7 +159,7 @@ async function atualizar() {
     const p = s.piso || {};
     $("piso").innerHTML = p.disponivel ? barra("esquerda", p.l, 1023, p.limiar) + barra("centro", p.m, 1023, p.limiar) + barra("direita", p.r, 1023, p.limiar)
       : '<span class="meta">R3 sem o firmware da GS: sensor de piso indisponível</span>';
-    if (document.activeElement !== $("limiar")) $("limiar").value = p.limiar || 850;
+    if (document.activeElement !== $("limiar")) $("limiar").value = p.limiar || 550;
     $("desnivel").textContent = p.desnivel ? "DESNÍVEL À FRENTE" : "piso ok";
     $("desnivel").className = "pill " + (p.desnivel ? "c-desnivel" : "sev-baixa");
 

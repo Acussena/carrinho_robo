@@ -1,52 +1,76 @@
 # Testes e demonstração
 
-Legenda: ✅ passou · ⚠️ passou com ressalva · ❌ falhou · ⏳ a executar
+Legenda: ✅ passou · ⚠️ passou com ressalva · ❌ falhou · ⏳ a executar (pelo grupo, na gravação do vídeo)
 
-> Preencha a coluna **Resultado** durante os testes. Se possível, salve o Monitor Serial e o CSV do painel em `gs/docs/logs/`.
+Testes feitos em 14/11/2026 com o carrinho real: firmwares da GS gravados na R3 (COM9) e na ESP32-S3 (COM10), painel ligado ao robô pelo Wi-Fi (`http://fiscal.local`) e IA com o Gemini (chave gratuita do Google AI Studio).
 
-## 1. Painel e IA sem o robô (simulação)
+Evidências em [`logs/`](logs):
 
-| # | Teste | Como | Esperado | Resultado |
-|---|---|---|---|---|
-| S1 | Painel em simulação, IA offline | `python gs/painel/painel.py --simular` sem `.env` | telemetria ao vivo; ocorrências de obstáculo, desnível e trecho crítico com análise `regras (offline)`; alertas falados | ✅ executado no desenvolvimento: 4 ocorrências analisadas, CSV gravado |
-| S2 | Relatório offline | botão **Gerar relatório** | Markdown com tabela de ocorrências salvo em `saida/` | ✅ executado no desenvolvimento |
-| S3 | Pergunta offline | "A calçada é acessível?" | resposta com a contagem de ocorrências | ✅ executado no desenvolvimento |
-| S4 | Comandos | botões Parar / Iniciar | ocorrência `patrulha` e alerta "Patrulha encerrada/iniciada" | ✅ executado no desenvolvimento |
-| S5 | IA com LLM | `.env` com `GEMINI_API_KEY` e simulação | ocorrências com `fonte: LLM gemini-…`, alerta contextualizado | ⏳ |
-| S6 | LLM sem internet | desligar a internet com o painel aberto | o erro aparece no selo "IA"; as ocorrências seguem analisadas pelas regras offline | ⏳ |
+| Arquivo | Conteúdo |
+|---|---|
+| [teste_borda_mesa_telemetria.txt](logs/teste_borda_mesa_telemetria.txt) | telemetria comentada do teste da borda (piso, distância, decisão, manobra) |
+| [ocorrencias_teste_borda_mesa.csv](logs/ocorrencias_teste_borda_mesa.csv) | ocorrências com a análise do LLM (gravidade, alerta falado, recomendação) |
+| [teste_borda_mesa_eventos_esp32.json](logs/teste_borda_mesa_eventos_esp32.json) | ocorrências cruas registradas na ESP32 (`/eventos`) |
+| [relatorio_ia_teste_borda_mesa.md](logs/relatorio_ia_teste_borda_mesa.md) | relatório para a prefeitura gerado pelo LLM a partir do teste |
 
-## 2. Sensor adicional (piso) no robô
+## 1. Integração hardware ↔ software
 
-| # | Teste | Como | Esperado | Resultado |
-|---|---|---|---|---|
-| P1 | Leitura no chão | carrinho parado no piso, painel aberto | L/M/R baixos e estáveis (anotar: ___ / ___ / ___) | ⏳ |
-| P2 | Leitura sem piso | levantar a frente do carrinho | L/M/R altos (anotar: ___ / ___ / ___); "DESNÍVEL À FRENTE" | ⏳ |
-| P3 | Calibração | limiar entre P1 e P2 → **ajustar** | o desnível só acende sem piso | ⏳ |
-| P4 | Faixa preta no chão | passar sobre fita isolante preta | ⚠️ esperado: pode detectar como desnível (limitação documentada); anotar | ⏳ |
+| # | Teste | Resultado |
+|---|---|---|
+| H1 | Compilação dos firmwares (arduino-cli) | ✅ R3: 25.242 bytes (78%), RAM 33% · ESP32-S3: 839 KB (25%), RAM 9% |
+| H2 | Gravação das duas placas sem soltar o cabo Camera UART (ESP32 mantida em modo de gravação durante o upload da R3) | ✅ |
+| H3 | R3 → ESP32 no formato da GS (`millis,cm,L,M,R,V10,desnivel,modo`) | ✅ `r3_ok: true`, piso e bateria chegando |
+| H4 | ESP32 no Wi-Fi + API (`/status`, `/eventos`, `/cmd`) | ✅ IP 192.168.0.27, sinal −52 a −56 dBm, `fiscal.local` resolvendo |
+| H5 | Painel recebendo a telemetria pelo Wi-Fi e comandando o robô (Iniciar/Parar) | ✅ |
+
+## 2. Sensor adicional (piso)
+
+| # | Teste | Esperado | Resultado |
+|---|---|---|---|
+| P1 | Leitura no chão | valores baixos e estáveis | ✅ **0 / 0 / 0** |
+| P2 | Frente levantada ~10 cm (sem piso) | valores altos | ✅ **734–749** nos três sensores |
+| P3 | Calibração | limiar entre P1 e P2 | ✅ limiar **550** (o padrão inicial, 850, ficava acima do valor sem piso); com a frente levantada: `desnivel: true` |
+| P4 | Superfície escura | não confundir com desnível | ⚠️ uma mesa escura leu ~405 (abaixo de 550, ok). Faixa preta não testada: limitação documentada |
 
 ## 3. Comportamento autônomo
 
-| # | Teste | Como | Esperado | Resultado |
-|---|---|---|---|---|
-| A1 | **Borda da mesa = degrau/meio-fio** | mesa baixa, patrulha iniciada, carrinho indo em direção à borda (alguém pronto para segurar) | para antes de cair, LED roxo, ré + giro; alerta falado de desnível | ⏳ |
-| A2 | Obstáculo (caixa/mochila) | caixa parada no caminho | desacelera (laranja), ré + giro (vermelho); alerta de obstáculo | ⏳ |
-| A3 | Trecho crítico | caixa + borda em menos de 30 s | "modo cauteloso" no painel, velocidade menor; alerta de trecho crítico | ⏳ |
-| A4 | Robô levantado | patrulha ativa, erguer o carrinho | rodas não giram para frente (segurança da R3) | ⏳ |
-| A5 | Caminho livre | 1–2 m sem nada | frente rápido, LED verde | ⏳ |
+| # | Teste | Esperado | Resultado |
+|---|---|---|---|
+| A1 | **Borda da mesa = degrau/meio-fio** | para, LED roxo, ré + giro, alerta falado | ✅ **4 desníveis** detectados e evitados (parada → ré → giro), inclusive com só 1 sensor na borda durante o giro. O LLM classificou todos como gravidade **alta** ([telemetria](logs/teste_borda_mesa_telemetria.txt)) |
+| A2 | Obstáculo à frente | desacelera e desvia | ✅ **7 obstáculos** (mão/objetos a 1–31 cm) → ré + giro. ⏳ repetir com uma caixa no vídeo |
+| A3 | Trecho crítico | modo cauteloso | ✅ `trecho_critico` após 2 barreiras em 30 s; em seguida, "livre" a **vel 110** em vez de 150 |
+| A4 | Robô levantado com patrulha ativa | não avança | ⏳ (P2 confirma a detecção; falta filmar as rodas paradas) |
+| A5 | Caminho livre | frente rápido, LED verde | ✅ `livre -> dir 1 vel 150` |
+| A6 | Standby | modelo roda, mas sem ocorrências | ✅ após o ajuste do item 6 |
 
-## 4. Situações de falha
+## 4. IA (LLM) e painel
 
-| # | Teste | Como | Esperado | Resultado |
-|---|---|---|---|---|
-| F1 | Cabo R3 ↔ ESP32 solto | desconectar o cabo "Camera UART" com a patrulha ativa | motores param em ≤ 1 s; ocorrência `falha_r3`; ao reconectar, `r3_reconectada` | ⏳ |
-| F2 | Wi-Fi caído | desligar o hotspot | robô continua desviando sozinho; painel mostra "sem dados do robô"; ao religar, reconecta | ⏳ |
-| F3 | R3 com firmware do CP2 | gravar `cp2/r3` e ligar | ocorrência `sensor_piso_indisponivel`; robô segue só com o ultrassônico | ⏳ (opcional) |
-| F4 | Bateria fraca | rodar até < 7,0 V (ou observar a tensão no painel) | `bateria_baixa`, velocidade de economia | ⏳ (opcional) |
-| F5 | Sem chave do LLM | apagar o `.env` | painel funciona com regras offline | ✅ (= S1) |
+| # | Teste | Resultado |
+|---|---|---|
+| I1 | Análise de cada ocorrência real pelo LLM | ✅ 6 chamadas ao Gemini no teste; alertas como "Cuidado! Desnível perigoso à frente. Risco de queda para pedestres e cadeirantes." |
+| I2 | Troca automática de modelo | ✅ `gemini-2.5-flash` descontinuado (404) → `gemini-3.5-flash`; durante o teste, troca para `gemini-3.5-flash-lite` quando o principal não respondeu |
+| I3 | Repetição em menos de 8 s reaproveita a análise (poupa cota) | ✅ marcadas como "(repetição)" no CSV |
+| I4 | Pergunta em linguagem natural | ✅ "Esta calçada é acessível para cadeirantes?" respondida com base nos dados |
+| I5 | Relatório para a prefeitura | ✅ [relatorio_ia_teste_borda_mesa.md](logs/relatorio_ia_teste_borda_mesa.md) |
+| I6 | Simulação sem robô e regras offline sem chave | ✅ (`painel.py --simular`) |
+| I7 | LLM sem internet durante a patrulha | ⏳ desligar a internet do PC: as ocorrências devem seguir com `regras (offline)` |
 
-## 5. Evidências
+## 5. Situações de falha
 
-- Logs do Monitor Serial (115200) da ESP32: `# ... -> desnivel`, linhas `@E`.
-- CSV gerado pelo painel: `gs/painel/saida/ocorrencias_*.csv` (copie um para `gs/docs/logs/`).
-- Relatório gerado pelo LLM: `gs/painel/saida/relatorio_*.md` (copie um para `gs/docs/logs/`).
-- Vídeo: ver o roteiro em [roteiro_video.md](roteiro_video.md).
+| # | Teste | Esperado | Resultado |
+|---|---|---|---|
+| F1 | Cabo R3 ↔ ESP32 solto | motores param em ≤ 1 s; `falha_r3`; ao reconectar, `r3_reconectada` | ⏳ |
+| F2 | Wi-Fi caído | robô segue autônomo; painel avisa "sem dados do robô"; reconecta sozinho | ⏳ |
+| F3 | R3 com firmware antigo | `sensor_piso_indisponivel` | não executado (exigiria regravar o CP2) |
+| F4 | Chave da bateria desligada (só USB, 4,5 V) | sem alarme falso | ✅ painel mostra "desligada (só USB)", após o ajuste do item 6 |
+| F5 | Sem chave do LLM | regras offline | ✅ |
+
+## 6. Problemas encontrados nos testes e correções
+
+| Problema observado | Causa | Correção |
+|---|---|---|
+| Desnível não era detectado com a frente levantada | sem piso o sensor lê ~740, abaixo do limiar inicial de 850 | calibração; limiar padrão **550** |
+| Alerta de "bateria baixa" com o carrinho parado | chave da bateria desligada: a placa media só a USB (4,5 V) | abaixo de 5,5 V = "bateria desligada (só USB)", sem alarme |
+| Obstáculos viravam ocorrência com o carrinho em standby | a ESP32 não sabia o modo da R3 | a R3 envia o modo; só há ocorrência durante a patrulha |
+| Erro 404 do LLM | `gemini-2.5-flash` descontinuado para chaves novas | modelo `gemini-3.5-flash` + lista de reserva (404/429/503/timeout) |
+| Upload da R3 exigiria soltar o cabo da câmera | a ESP32 transmite na mesma linha serial | a ESP32 fica em modo de gravação (silenciosa) durante o upload da R3 |

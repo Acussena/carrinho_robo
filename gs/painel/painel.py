@@ -257,7 +257,7 @@ class IA:
             "  explicacao: 1 frase explicando como os sensores levaram a essa conclusão\n"
             "  recomendacao: 1 ação concreta para a prefeitura/gestão do espaço\n"
         ) % (self.estado.local, ev.get("hora"), ev["tipo"], DESCRICAO_EVENTO.get(ev["tipo"], ""),
-             ev.get("dist"), ev.get("piso"), (resumo["status_atual"].get("piso") or {}).get("limiar", 850),
+             ev.get("dist"), ev.get("piso"), (resumo["status_atual"].get("piso") or {}).get("limiar", 550),
              ev.get("bateria"), ev.get("confianca"), json.dumps(resumo["contagem"], ensure_ascii=False))
         texto = self._gemini(prompt)
         texto = texto.strip().strip("`")
@@ -280,7 +280,9 @@ class IA:
             if anterior and time.time() - anterior[0] < 8:
                 analise = dict(anterior[1])
                 analise["fonte"] = analise.get("fonte", "") + " (repetição)"
-                analise["alerta_voz"] = "Nova ocorrência de %s." % tipo.replace("_", " ")
+                nomes = {"desnivel": "desnível", "obstaculo": "obstáculo", "trecho_critico": "trecho crítico",
+                         "bateria_baixa": "bateria baixa", "falha_r3": "falha na placa de controle"}
+                analise["alerta_voz"] = "Novo %s detectado." % nomes.get(tipo, tipo.replace("_", " "))
             else:
                 try:
                     analise = self.analisar_llm(ev) if self.online else self.analisar_offline(ev)
@@ -480,12 +482,12 @@ class FonteSimulada(Fonte):
             t = time.time() - t0
             dist = max(8, min(150, dist + random.choice([-12, -6, 0, 6, 12])))
             bat = max(6.8, bat - 0.004)
-            piso = [random.randint(120, 300) for _ in range(3)]
+            piso = [random.randint(0, 15) for _ in range(3)]
             for i, (instante, tipo) in enumerate(roteiro):
                 if self.ativo and t >= instante and i not in feitos:
                     feitos.add(i)
                     if tipo == "desnivel":
-                        piso = [random.randint(880, 1000), random.randint(900, 1010), random.randint(400, 950)]
+                        piso = [random.randint(730, 750), random.randint(730, 750), random.randint(0, 750)]
                     self._evento(tipo, dist if tipo != "obstaculo" else random.randint(8, 18), piso, round(bat, 1),
                                  round(random.uniform(0.7, 0.98), 2) if tipo == "obstaculo" else 1.0)
                     if tipo == "obstaculo" and self.cont["obstaculo"] + self.cont["desnivel"] >= 2 and not self.cont["trecho_critico"]:
@@ -493,8 +495,8 @@ class FonteSimulada(Fonte):
             classe = "livre" if dist > 60 else ("aproximando" if dist > 20 else "obstaculo")
             self.estado.atualizar_status({
                 "uptime_ms": int(t * 1000), "r3_ok": True, "dist_cm": dist,
-                "piso": {"disponivel": True, "l": piso[0], "m": piso[1], "r": piso[2], "limiar": 850,
-                         "desnivel": max(piso) > 850},
+                "piso": {"disponivel": True, "l": piso[0], "m": piso[1], "r": piso[2], "limiar": 550,
+                         "desnivel": max(piso) > 550},
                 "patrulhando": self.ativo, "bateria_v": round(bat, 1), "bateria_ligada": True,
                 "bateria_baixa": bat < 7.0,
                 "modelo": {"classe": classe, "confianca": 0.9, "tempo_ms": 0,

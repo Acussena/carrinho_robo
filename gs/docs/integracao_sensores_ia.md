@@ -17,17 +17,19 @@ O robô **nunca** depende do PC para se mover com segurança. O painel acrescent
 
 | Situação | IR refletido | Valor lido |
 |---|---|---|
-| piso comum (cerâmica, madeira, concreto claro) | muito | baixo (~100–400) |
-| buraco, degrau, borda, robô levantado | nada | alto (~900–1023) |
+| piso comum (medido no chão do teste) | muito | **0 / 0 / 0** |
+| borda, degrau, frente levantada 10 cm (medido) | nada | **~735–750** |
 
-- **Regra de desnível** (`MotorDriverSystem::updateFloorSensors`): pelo menos **2 dos 3** sensores acima do limiar (padrão 850) por **2 amostras seguidas** (100 ms). Isso evita alarme falso por uma leitura isolada ou por um risco escuro sob um só sensor.
+Limiar padrão: **550**, no meio das duas leituras com folga. Uma superfície mais escura medida no teste (mesa) leu ~405, abaixo do limiar.
+
+- **Regra de desnível** (`MotorDriverSystem::updateFloorSensors`): pelo menos **2 dos 3** sensores acima do limiar (padrão 550, calibrado no carrinho) por **2 amostras seguidas** (100 ms). Isso evita alarme falso por uma leitura isolada ou por um risco escuro sob um só sensor.
 
 ## 2. Protocolo R3 ↔ ESP32 (cabo Camera UART, 9600)
 
 | Comando | Sentido | Efeito |
 |---|---|---|
 | `{"N":111,"D1":2}` | ESP32 → R3 | **GS:** envia `millis,cm,L,M,R,V10,desnivel,modo` a cada 50 ms (`D1:1` = formato do CP2, `D1:0` = desliga) |
-| `{"N":112,"D1":850}` | ESP32 → R3 | **GS:** limiar do sensor de piso (100–1023) |
+| `{"N":112,"D1":550}` | ESP32 → R3 | **GS:** limiar do sensor de piso (100–1023) |
 | `{"N":101,"D1":4}` / `{"N":101,"D1":0}` | ESP32 → R3 | entra no modo autônomo (= tecla 0) / **GS:** volta ao standby |
 | `{"N":110,"D1":dir,"D2":vel,"D3":classe}` | ESP32 → R3 | ação; `D3` = cor do LED: 0 livre, 1 aproximando, 2 obstáculo, **3 desnível (roxo)** |
 

@@ -92,7 +92,7 @@ namespace MotorConfig {
 
     // GS CitizenTech: line tracking sensors used as a floor/drop sensor (buraco, degrau, meio-fio)
     // analogRead high = no light reflected = no floor (or a very dark surface) under the sensor
-    constexpr uint16_t CLIFF_THRESHOLD_DEFAULT = 850; // adjustable with {"N":112,"D1":value}
+    constexpr uint16_t CLIFF_THRESHOLD_DEFAULT = 550; // calibrated: floor = 0, no floor = ~740; {"N":112,"D1":value}
     constexpr uint8_t CLIFF_MIN_SENSORS = 2;          // at least 2 of the 3 sensors without floor
     constexpr uint8_t CLIFF_CONFIRM_SAMPLES = 2;      // 2 samples in a row (100 ms) to confirm
 }

@@ -1,0 +1,31 @@
+Teste da borda da mesa (14/11/2026) - telemetria lida de http://fiscal.local/status a cada ~0,7 s
+Carrinho numa mesa, bateria ligada (8,1 V), limiar do piso 550, patrulha iniciada pelo painel (/cmd?acao=iniciar).
+Colunas: tempo de ligado | distância à frente | piso [esq centro dir] | desnível confirmado | patrulhando |
+         classe do TinyML -> decisão | direção (1 frente, 2 ré, 4 direita, 9 parado) | velocidade | manobra | último id de ocorrência
+
+361.9 s  29 cm piso   0   0   0 desn 0 patr 1 | obstaculo   -> obstaculo dir 4 vel 150 giro            | ev 1
+362.7 s  67 cm piso   0   0   0 desn 0 patr 1 | obstaculo   -> obstaculo dir 9 vel 0   nenhuma         | ev 1
+363.5 s  66 cm piso   0   0   0 desn 0 patr 1 | livre       -> livre     dir 1 vel 150 nenhuma         | ev 1   <- caminho livre: frente rápido
+366.8 s   3 cm piso   0   0   0 desn 0 patr 1 | obstaculo   -> obstaculo dir 2 vel 150 re              | ev 4   <- obstáculo (mão): ré
+367.5 s   8 cm piso   0   0   0 desn 0 patr 1 | obstaculo   -> obstaculo dir 4 vel 150 giro            | ev 4   <- ... e giro
+368.3 s  26 cm piso   0   0   0 desn 0 patr 1 | obstaculo   -> obstaculo dir 9 vel 0   nenhuma         | ev 4
+369.0 s  28 cm piso   0   0   0 desn 0 patr 1 | incerto     -> obstaculo dir 9 vel 0   nenhuma         | ev 4   <- confiança < 60%: mantém a ação
+369.8 s  42 cm piso   0   0   0 desn 0 patr 1 | obstaculo   -> obstaculo dir 2 vel 150 re              | ev 5
+370.5 s  85 cm piso   0   0   0 desn 0 patr 1 | obstaculo   -> obstaculo dir 9 vel 0   nenhuma         | ev 5
+371.3 s  85 cm piso   0   0   0 desn 0 patr 1 | obstaculo   -> desnivel  dir 2 vel 150 re_desnivel     | ev 6   <- BORDA: ré de desnível
+372.1 s  88 cm piso   0   0 748 desn 0 patr 1 | obstaculo   -> desnivel  dir 4 vel 150 giro_desnivel   | ev 6   <- giro (sensor direito ainda sobre a borda)
+375.3 s   1 cm piso   0   2   0 desn 0 patr 1 | aproximando -> desnivel  dir 4 vel 150 giro_desnivel   | ev 6
+376.2 s   1 cm piso   0   0   0 desn 0 patr 1 | aproximando -> desnivel  dir 9 vel 0   nenhuma         | ev 6
+376.9 s 150 cm piso 747 748 748 desn 1 patr 1 | aproximando -> desnivel  dir 2 vel 150 re_desnivel     | ev 7   <- BORDA de novo: 3 sensores sem piso
+377.7 s  19 cm piso   0   0   0 desn 0 patr 1 | aproximando -> desnivel  dir 4 vel 150 giro_desnivel   | ev 7
+378.3 s   1 cm piso   0   0   0 desn 0 patr 1 | aproximando -> desnivel  dir 9 vel 0   nenhuma         | ev 7
+379.1 s   2 cm piso   0   0   0 desn 0 patr 1 | obstaculo   -> obstaculo dir 2 vel 150 re              | ev 8
+379.8 s   7 cm piso   0   0   0 desn 0 patr 1 | obstaculo   -> obstaculo dir 4 vel 150 giro            | ev 8
+380.6 s  83 cm piso   0   0 748 desn 0 patr 1 | obstaculo   -> obstaculo dir 9 vel 0   nenhuma         | ev 8
+381.3 s  84 cm piso   0   0 748 desn 0 patr 1 | livre       -> livre     dir 1 vel 110 nenhuma         | ev 8   <- MODO CAUTELOSO: livre a 110 (e não 150)
+383.1 s 112 cm piso   0   0 748 desn 0 patr 1 | aproximando -> desnivel  dir 2 vel 150 re_desnivel     | ev 9   <- BORDA
+383.8 s   6 cm piso 736   0   0 desn 0 patr 1 | aproximando -> desnivel  dir 4 vel 150 giro_desnivel   | ev 9
+
+Resumo da ESP32 ao fim do teste: obstaculo 7, desnivel 4, trecho_critico 1, bateria_baixa 0, falha_r3 0.
+Ocorrências e análises da IA: ocorrencias_teste_borda_mesa.csv · eventos crus da ESP32: teste_borda_mesa_eventos_esp32.json
+Relatório gerado pelo LLM: relatorio_ia_teste_borda_mesa.md

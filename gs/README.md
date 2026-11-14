@@ -97,7 +97,13 @@ Tudo do kit **LAFVIN R3 Smart Robot Car com câmera** (R$ 389,00, ver [planilha 
 
 ### 6.1 Gravar a R3
 
-Arduino IDE → placa **Arduino Uno**, bibliotecas **FastLED 3.5.0** e **Servo**. Desconecte o cabo "Camera UART" durante a gravação e reconecte depois.
+Arduino IDE → placa **Arduino Uno**, bibliotecas **FastLED 3.5.0** e **Servo** (no arduino-cli: `arduino-cli lib install FastLED@3.5.0 Servo`). Durante a gravação, a ESP32 não pode transmitir na mesma linha: desconecte o cabo "Camera UART" ou deixe a ESP32 em modo de gravação, sem soltar nada:
+
+```bash
+esptool --chip esp32s3 -p COMy --after no_reset chip_id
+```
+
+Grave a R3 e depois reinicie a ESP32 com `esptool --chip esp32s3 -p COMy --after hard_reset chip_id`.
 
 ```bash
 arduino-cli compile -u -b arduino:avr:uno -p COMx gs/r3/carrinho_r3
@@ -131,9 +137,9 @@ python gs/painel/painel.py --ip 192.168.0.50 --local "Calçada da Av. Paulista, 
 
 No painel, o cartão **Sensor de piso** mostra os 3 valores ao vivo e o limiar (linha vermelha).
 
-1. Carrinho no chão: anote os valores (ex.: 100–300).
-2. Segure a frente do carrinho para fora da borda de uma mesa ou degrau: anote os valores (ex.: 900–1020).
-3. Ajuste o limiar entre os dois (o padrão é 850) e clique em **ajustar**. Isso vale até desligar; para fixar, mude `limiarPiso` em `carrinho_gs.ino`.
+1. Carrinho no chão: anote os valores (no nosso teste: 0 / 0 / 0).
+2. Levante a frente do carrinho uns 10 cm (ou segure-a para fora da borda de uma mesa): anote os valores (no nosso teste: ~740).
+3. Ajuste o limiar entre os dois (o padrão gravado é **550**, calibrado no nosso carrinho) e clique em **ajustar**. Isso vale até desligar; para fixar, mude `limiarPiso` em `carrinho_gs.ino`.
 
 > **Segurança do teste:** faça o teste de borda numa mesa baixa, com alguém pronto para segurar o carrinho.
 
