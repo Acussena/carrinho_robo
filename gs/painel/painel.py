@@ -159,7 +159,10 @@ class IA:
         self.estado = estado
         self.chave = os.environ.get("GEMINI_API_KEY", "").strip()
         modelo_env = os.environ.get("GEMINI_MODEL", "").strip()
-        self.modelos = [m for m in [modelo_env, "gemini-2.5-flash", "gemini-flash-latest", "gemini-2.0-flash"] if m]
+        # em ordem de preferência; se um estiver descontinuado (404), sobrecarregado (503),
+        # sem cota (429) ou lento, o próximo é tentado
+        self.modelos = [m for m in [modelo_env, "gemini-3.5-flash", "gemini-3.5-flash-lite",
+                                    "gemini-flash-lite-latest", "gemini-flash-latest"] if m]
         self.modelo_ok = None
         self.ultimo_erro = ""
         self.chamadas = 0
@@ -186,14 +189,15 @@ class IA:
         }
         if json_saida:
             corpo["generationConfig"]["responseMimeType"] = "application/json"
-        modelos = [self.modelo_ok] if self.modelo_ok else self.modelos
+        # o modelo que funcionou por último vem primeiro, os outros ficam de reserva
+        modelos = ([self.modelo_ok] if self.modelo_ok else []) + [m for m in self.modelos if m != self.modelo_ok]
         erro = None
         for modelo in modelos:
             url = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent" % modelo
             req = urllib.request.Request(url, data=json.dumps(corpo).encode("utf-8"), method="POST",
                                          headers={"Content-Type": "application/json", "x-goog-api-key": self.chave})
             try:
-                with urllib.request.urlopen(req, timeout=25) as resp:
+                with urllib.request.urlopen(req, timeout=12) as resp:
                     dados = json.loads(resp.read().decode("utf-8"))
                 self.chamadas += 1
                 self.modelo_ok = modelo
@@ -203,12 +207,15 @@ class IA:
             except urllib.error.HTTPError as e:
                 detalhe = e.read().decode("utf-8", "ignore")[:200]
                 erro = "HTTP %d em %s: %s" % (e.code, modelo, detalhe)
-                if e.code == 404:
-                    continue          # modelo não existe mais: tenta o próximo
-                break
-            except Exception as e:     # sem internet, timeout...
+                if e.code in (404, 429, 500, 503):
+                    continue          # descontinuado, sem cota ou sobrecarregado: tenta o próximo
+                break                 # 400/401/403: chave ou pedido inválido, não adianta insistir
+            except urllib.error.URLError as e:
+                erro = "sem conexão: %s" % e.reason
+                break                 # sem internet: vai direto para as regras offline
+            except Exception as e:     # timeout: tenta um modelo mais leve
                 erro = "%s: %s" % (type(e).__name__, e)
-                break
+                continue
         self.ultimo_erro = erro or "erro desconhecido"
         raise RuntimeError(self.ultimo_erro)
 
