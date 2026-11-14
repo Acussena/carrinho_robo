@@ -543,13 +543,21 @@ void loop() {
     if (contagem[EV_FALHA_R3] > 0) registrarEvento(EV_R3_OK, 0);
   }
 
-  // R3 sem o firmware da GS: avisa uma vez e segue só com o ultrassônico
+  // R3 mandando só "millis,cm": pede o formato da GS de novo a cada 3 s; se depois de
+  // 6 s continuar sem o sensor de piso (R3 com firmware antigo), avisa e segue só com o ultrassônico
   static bool avisouPiso = false;
-  if (!pisoDisponivel && amostras == N_JANELA && !avisouPiso) {
-    avisouPiso = true;
-    registrarEvento(EV_PISO_INDISPONIVEL, 0);
+  static unsigned long semPisoDesde = 0, ultimoPedidoPiso = 0;
+  if (!pisoDisponivel) {
+    if (semPisoDesde == 0) semPisoDesde = millis();
+    if (millis() - ultimoPedidoPiso > 3000) { ultimoPedidoPiso = millis(); ligarEnvioR3(); }
+    if (!avisouPiso && millis() - semPisoDesde > 6000) {
+      avisouPiso = true;
+      registrarEvento(EV_PISO_INDISPONIVEL, 0);
+    }
+  } else {
+    semPisoDesde = 0;
+    avisouPiso = false;
   }
-  if (pisoDisponivel) avisouPiso = false;
 
   digitalWrite(PINO_LED, HIGH);
   if (pausado) return;

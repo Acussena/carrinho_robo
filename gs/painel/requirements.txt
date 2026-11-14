@@ -1,0 +1,2 @@
+# só é necessário para ligar o painel pela USB (--porta COMx); Wi-Fi e simulação usam apenas a biblioteca padrão
+pyserial==3.5

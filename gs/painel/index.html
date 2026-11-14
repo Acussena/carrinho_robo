@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiscal de Calçadas</title>
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #ffffff; --txt: #1b2430; --sub: #5d6b7a; --borda: #dde3ea;
+    --verde: #1f9d55; --laranja: #e08a00; --vermelho: #d64545; --roxo: #7c4dcc; --azul: #2f6fdf;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #11161c; --card: #1a212a; --txt: #e7edf3; --sub: #93a1b0; --borda: #2a3440; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--txt); }
+  header { padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--borda); background: var(--card); }
+  h1 { font-size: 20px; margin: 0; }
+  h1 small { font-weight: 400; color: var(--sub); font-size: 14px; margin-left: 6px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--sub); margin: 0 0 10px; }
+  main { padding: 16px; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); max-width: 1300px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--borda); border-radius: 12px; padding: 14px 16px; }
+  .wide { grid-column: 1 / -1; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #fff; background: var(--sub); }
+  .big { font-size: 34px; font-weight: 700; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .bar { height: 10px; background: var(--borda); border-radius: 6px; overflow: hidden; position: relative; flex: 1; }
+  .bar > i { display: block; height: 100%; background: var(--azul); }
+  .bar .limiar { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--vermelho); }
+  .lbl { width: 92px; color: var(--sub); font-size: 13px; }
+  .val { width: 48px; text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+  button { font: inherit; border: 1px solid var(--borda); background: var(--card); color: var(--txt); padding: 7px 12px; border-radius: 8px; cursor: pointer; }
+  button.prim { background: var(--azul); border-color: var(--azul); color: #fff; }
+  input { font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--borda); background: var(--bg); color: var(--txt); }
+  ul { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow: auto; }
+  li { border-top: 1px solid var(--borda); padding: 8px 0; }
+  li:first-child { border-top: 0; }
+  .meta { color: var(--sub); font-size: 12px; }
+  .sev-alta { background: var(--vermelho); } .sev-media { background: var(--laranja); }
+  .sev-baixa { background: var(--verde); } .sev-info { background: var(--azul); }
+  .c-livre { background: var(--verde); } .c-aproximando { background: var(--laranja); }
+  .c-obstaculo { background: var(--vermelho); } .c-desnivel { background: var(--roxo); } .c-incerto { background: var(--sub); }
+  pre { white-space: pre-wrap; background: var(--bg); padding: 12px; border-radius: 8px; max-height: 420px; overflow: auto; font-size: 13px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .grid3 div b { display: block; font-size: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Fiscal de Calçadas <small id="local"></small></h1>
+  <div class="row">
+    <span id="conexao" class="pill">conectando…</span>
+    <span id="iainfo" class="pill">IA</span>
+    <label class="row" style="gap:4px"><input type="checkbox" id="voz" checked> voz</label>
+  </div>
+</header>
+<main>
+  <section class="card">
+    <h2>Ultrassônico + TinyML</h2>
+    <div class="row"><span class="big" id="dist">--</span><span class="meta">cm à frente</span>
+      <span id="classe" class="pill c-incerto" style="margin-left:auto">--</span></div>
+    <div id="probs" style="margin-top:10px"></div>
+  </section>
+
+  <section class="card">
+    <h2>Sensor de piso (seguidor de linha)</h2>
+    <div id="piso"></div>
+    <div class="row" style="margin-top:10px">
+      <span id="desnivel" class="pill sev-baixa">piso ok</span>
+      <span class="meta" style="margin-left:auto">limiar</span>
+      <input id="limiar" type="number" min="100" max="1023" style="width:80px">
+      <button onclick="cmd('limiar', document.getElementById('limiar').value)">ajustar</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Decisão autônoma</h2>
+    <div class="row"><span id="decisao" class="pill">--</span><span id="cautela" class="pill sev-baixa">modo normal</span>
+      <span class="meta" id="manobra"></span></div>
+    <div class="row" style="margin-top:10px"><span class="meta">Bateria</span><b id="bateria">--</b>
+      <span class="meta" style="margin-left:auto" id="uptime"></span></div>
+    <div class="row" style="margin-top:12px">
+      <button class="prim" onclick="cmd('iniciar')">Iniciar patrulha</button>
+      <button onclick="cmd('parar')">Parar</button>
+      <button onclick="cmd('pausar')">Pausar IA</button>
+      <button onclick="cmd('retomar')">Retomar</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Ocorrências nesta patrulha</h2>
+    <div class="grid3">
+      <div><b id="n-desnivel">0</b><span class="meta">desníveis</span></div>
+      <div><b id="n-obstaculo">0</b><span class="meta">obstáculos</span></div>
+      <div><b id="n-critico">0</b><span class="meta">trechos críticos</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Alertas da IA (falados)</h2>
+    <ul id="alertas"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Ocorrências analisadas</h2>
+    <ul id="ocorrencias"></ul>
+  </section>
+
+  <section class="card wide">
+    <h2>Pergunte à IA</h2>
+    <div class="row">
+      <input id="pergunta" style="flex:1;min-width:200px" placeholder="Ex.: Esta calçada é acessível para cadeirantes?">
+      <button class="prim" onclick="perguntar()">Perguntar</button>
+      <button onclick="relatorio()">Gerar relatório para a prefeitura</button>
+    </div>
+    <pre id="saida" style="display:none"></pre>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let ultimoAlertaFalado = null;
+const NOMES = {obstaculo: "Obstáculo", desnivel: "Desnível", trecho_critico: "Trecho crítico", bateria_baixa: "Bateria baixa",
+  falha_r3: "Falha na R3", r3_reconectada: "R3 reconectada", sensor_piso_indisponivel: "Sensor de piso indisponível"};
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function barra(nome, v, max, limiar) {
+  const p = Math.max(0, Math.min(100, v / max * 100));
+  const l = limiar ? `<span class="limiar" style="left:${limiar / max * 100}%"></span>` : "";
+  return `<div class="row" style="margin:4px 0"><span class="lbl">${nome}</span><div class="bar"><i style="width:${p}%"></i>${l}</div><span class="val">${v}</span></div>`;
+}
+
+function falar(texto) {
+  if (!$("voz").checked || !("speechSynthesis" in window) || !texto) return;
+  const u = new SpeechSynthesisUtterance(texto);
+  u.lang = "pt-BR";
+  const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith("pt"));
+  if (v) u.voice = v;
+  speechSynthesis.speak(u);
+}
+
+async function atualizar() {
+  let d;
+  try { d = await (await fetch("/api/estado")).json(); } catch (e) { $("conexao").textContent = "painel offline"; return; }
+  const s = d.status || {};
+  $("local").textContent = d.local;
+  $("conexao").textContent = d.conectado ? "robô conectado · " + d.fonte : "sem dados do robô";
+  $("conexao").className = "pill " + (d.conectado ? "sev-baixa" : "sev-alta");
+  $("iainfo").textContent = d.ia.online ? "IA: " + (d.ia.modelo || "Gemini") + (d.ia.ultimo_erro ? " (erro → offline)" : "") : "IA: regras offline";
+  $("iainfo").className = "pill " + (d.ia.online && !d.ia.ultimo_erro ? "sev-info" : "sev-media");
+
+  if (s.dist_cm !== undefined) {
+    $("dist").textContent = s.dist_cm;
+    const m = s.modelo || {};
+    $("classe").textContent = (m.classe || "--") + (m.confianca ? " " + Math.round(m.confianca * 100) + "%" : "");
+    $("classe").className = "pill c-" + (m.classe || "incerto");
+    $("probs").innerHTML = Object.entries(m.probs || {}).filter(([k]) => k).map(([k, v]) => barra(k, Math.round(v * 100), 100)).join("");
+
+    const p = s.piso || {};
+    $("piso").innerHTML = p.disponivel ? barra("esquerda", p.l, 1023, p.limiar) + barra("centro", p.m, 1023, p.limiar) + barra("direita", p.r, 1023, p.limiar)
+      : '<span class="meta">R3 sem o firmware da GS: sensor de piso indisponível</span>';
+    if (document.activeElement !== $("limiar")) $("limiar").value = p.limiar || 850;
+    $("desnivel").textContent = p.desnivel ? "DESNÍVEL À FRENTE" : "piso ok";
+    $("desnivel").className = "pill " + (p.desnivel ? "c-desnivel" : "sev-baixa");
+
+    const dc = s.decisao || {};
+    const acoes = {1: "frente", 2: "ré", 3: "esquerda", 4: "direita", 9: "parado"};
+    $("decisao").textContent = (dc.pausado ? "IA pausada" : (acoes[dc.dir] || "--") + (dc.vel ? " · vel " + dc.vel : ""));
+    $("decisao").className = "pill c-" + (dc.classe || "incerto");
+    $("cautela").textContent = dc.cautela ? "modo cauteloso" : (s.bateria_baixa ? "economia (bateria)" : "modo normal");
+    $("cautela").className = "pill " + (dc.cautela || s.bateria_baixa ? "sev-media" : "sev-baixa");
+    $("manobra").textContent = dc.manobra && dc.manobra !== "nenhuma" ? "manobra: " + dc.manobra : "";
+    $("bateria").textContent = s.bateria_v ? s.bateria_v.toFixed(1) + " V" : "--";
+    $("uptime").textContent = s.uptime_ms ? "ligado há " + Math.round(s.uptime_ms / 1000) + " s" : "";
+    const c = s.contagem || {};
+    $("n-desnivel").textContent = c.desnivel || 0;
+    $("n-obstaculo").textContent = c.obstaculo || 0;
+    $("n-critico").textContent = c.trecho_critico || 0;
+  }
+
+  $("alertas").innerHTML = d.alertas.slice().reverse().map(a =>
+    `<li><span class="pill sev-${esc(a.severidade)}">${esc(a.severidade)}</span> ${esc(a.texto)}<div class="meta">${esc(a.hora)} · ${esc(a.origem)}</div></li>`).join("");
+  $("ocorrencias").innerHTML = d.ocorrencias.map(o => {
+    const a = o.analise;
+    return `<li><b>${esc(NOMES[o.tipo] || o.tipo)}</b> <span class="meta">${esc(o.hora)} · ${o.dist} cm · piso ${esc(JSON.stringify(o.piso))}</span>
+      ${a ? `<div><span class="pill sev-${esc(a.severidade)}">${esc(a.severidade)}</span> ${esc(a.explicacao)}</div><div class="meta">Recomendação: ${esc(a.recomendacao)} · ${esc(a.fonte)}</div>` : '<div class="meta">analisando com a IA…</div>'}</li>`;
+  }).join("");
+
+  // fala os alertas novos (na primeira carga, não repete os antigos)
+  const novos = d.alertas.filter(a => ultimoAlertaFalado !== null && a.id > ultimoAlertaFalado && a.falar);
+  if (d.alertas.length) {
+    if (ultimoAlertaFalado === null) ultimoAlertaFalado = d.alertas[d.alertas.length - 1].id;
+    else ultimoAlertaFalado = Math.max(ultimoAlertaFalado, d.alertas[d.alertas.length - 1].id);
+  } else if (ultimoAlertaFalado === null) ultimoAlertaFalado = 0;
+  novos.forEach(a => falar(a.texto));
+}
+
+async function cmd(acao, valor) {
+  await fetch(`/api/cmd?acao=${encodeURIComponent(acao)}&valor=${encodeURIComponent(valor || 0)}`);
+}
+
+async function perguntar() {
+  const q = $("pergunta").value.trim();
+  if (!q) return;
+  $("saida").style.display = "block";
+  $("saida").textContent = "Perguntando à IA…";
+  const r = await (await fetch("/api/perguntar", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({pergunta: q})})).json();
+  $("saida").textContent = r.resposta;
+}
+
+async function relatorio() {
+  $("saida").style.display = "block";
+  $("saida").textContent = "Gerando relatório com a IA…";
+  const r = await (await fetch("/api/relatorio", {method: "POST"})).json();
+  $("saida").textContent = r.texto + "\n\nSalvo em: " + r.arquivo;
+}
+
+$("pergunta").addEventListener("keydown", e => { if (e.key === "Enter") perguntar(); });
+if ("speechSynthesis" in window) speechSynthesis.getVoices();
+atualizar();
+setInterval(atualizar, 700);
+</script>
+</body>
+</html>
