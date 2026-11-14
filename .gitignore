@@ -4,3 +4,8 @@ cp2/ferramentas/
 __pycache__/
 *.pyc
 build/
+
+# GS - segredos e saídas locais (não versionar)
+gs/esp32/carrinho_gs/config_wifi.h
+gs/painel/.env
+gs/painel/saida/
