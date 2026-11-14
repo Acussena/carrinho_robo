@@ -100,6 +100,16 @@ public:
      * @brief CP2: register that the ESP32 sent a TinyML action (feeds the safety timeout)
      */
     void markTinyMLCommand() { m_lastTinyMLCommand = millis(); }
+
+    /**
+     * @brief GS: remember the last direction sent by the ESP32 (1 forward, 5/7 forward curves)
+     */
+    void setTinyMLDir(uint8_t dir) { m_lastTinyMLDir = dir; }
+
+    /**
+     * @brief GS: true when the floor sensors see a drop and the last action moves forward
+     */
+    bool tinyMLForwardBlocked() const;
     
     // Get subsystem pointers (for use by other modules)
     MotorDriverSystem* getMotorSystem() { return m_motorSystem; }
@@ -112,6 +122,7 @@ private:
     OperationMode m_previousMode;     // Previous Mode
     char m_commandId[16];             // Current Command ID
     uint32_t m_lastTinyMLCommand;     // CP2: last TinyML action received from the ESP32
+    uint8_t m_lastTinyMLDir;          // GS: last direction received (drop safety)
     
     // Subsystem Pointers
     MotorDriverSystem* m_motorSystem;           // Motor Driver System

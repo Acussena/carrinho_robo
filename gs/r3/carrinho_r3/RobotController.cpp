@@ -21,6 +21,7 @@ RobotController::RobotController()
     , m_modeManager(nullptr)
     , m_commInterface(nullptr)
     , m_lastTinyMLCommand(0)
+    , m_lastTinyMLDir(9)
 {
     memset(m_commandId, 0, sizeof(m_commandId));
 }
@@ -87,7 +88,28 @@ void RobotController::update() {
     if (m_motorSystem->takeNewSample(distanceCm, sampleTime)) {
         Serial.print(sampleTime);
         Serial.print(',');
-        Serial.println(distanceCm);
+        if (m_motorSystem->getStreamMode() == 2) {
+            // GS: "millis,cm,L,M,R,V10,cliff" (floor sensors, battery x10, drop flag)
+            const SensorData& s = m_motorSystem->getSensorData();
+            Serial.print(distanceCm);
+            Serial.print(',');
+            Serial.print(s.lineTracker.leftValue);
+            Serial.print(',');
+            Serial.print(s.lineTracker.middleValue);
+            Serial.print(',');
+            Serial.print(s.lineTracker.rightValue);
+            Serial.print(',');
+            Serial.print((int)(s.power.voltage * 10));
+            Serial.print(',');
+            Serial.println(m_motorSystem->cliffDetected() ? 1 : 0);
+        } else {
+            Serial.println(distanceCm);
+        }
+    }
+
+    // GS: local safety, independent of the ESP32 - never drive forward into a drop
+    if (m_currentMode == OperationMode::TinyML && tinyMLForwardBlocked()) {
+        m_motorSystem->stop();
     }
 
     // 2. Process Inputs (Serial, IR, Buttons) - Must execute, otherwise cannot switch modes
@@ -128,6 +150,7 @@ void RobotController::setMode(OperationMode mode) {
             m_motorSystem->stop();
             m_motorSystem->setStreaming(true);
             m_lastTinyMLCommand = millis();
+            m_lastTinyMLDir = 9;
         }
 
         // Debug Output
@@ -148,6 +171,14 @@ void RobotController::setCommandId(const char* id) {
         strncpy(m_commandId, id, sizeof(m_commandId) - 1);
         m_commandId[sizeof(m_commandId) - 1] = '\0';
     }
+}
+
+/**
+ * @brief GS: forward movement is blocked while a drop is detected
+ */
+bool RobotController::tinyMLForwardBlocked() const {
+    bool forward = m_lastTinyMLDir == 1 || m_lastTinyMLDir == 5 || m_lastTinyMLDir == 7;
+    return forward && m_motorSystem->cliffDetected();
 }
 
 /**

@@ -165,6 +165,9 @@ void CommunicationInterface::executeCommand(int cmdId, RobotController* robot) {
                 robot->setMode(OperationMode::TargetFollowing);
             } else if (mode == 4) {
                 robot->setMode(OperationMode::TinyML);  // CP2
+            } else if (mode == 0) {
+                robot->getMotorSystem()->stop();        // GS: standby pelo painel
+                robot->setMode(OperationMode::Standby);
             }
             Serial.print(F("{ok}"));
         }
@@ -269,7 +272,13 @@ void CommunicationInterface::executeCommand(int cmdId, RobotController* robot) {
 
             // Only moves the car while in TinyML mode (IR remote and other modes keep priority)
             if (robot->getMode() == OperationMode::TinyML) {
-                robot->getModeManager()->executeManualControl(doc["D1"], doc["D2"]);
+                uint8_t dir = doc["D1"];
+                robot->setTinyMLDir(dir);
+                if (robot->tinyMLForwardBlocked()) {
+                    robot->getMotorSystem()->stop();   // GS: drop ahead, forward refused
+                } else {
+                    robot->getModeManager()->executeManualControl(dir, doc["D2"]);
+                }
                 robot->markTinyMLCommand();
             }
         }
@@ -279,7 +288,18 @@ void CommunicationInterface::executeCommand(int cmdId, RobotController* robot) {
         {
             StaticJsonDocument<200> doc;
             deserializeJson(doc, m_serialBuffer);
-            robot->getMotorSystem()->setStreaming(doc["D1"] == 1);
+            // CP2: 1 = "millis,cm" | GS: 2 = "millis,cm,L,M,R,V10,cliff" | 0 = off
+            robot->getMotorSystem()->setStreamMode((uint8_t)(doc["D1"] | 0));
+            Serial.print(F("{ok}"));
+        }
+        break;
+
+        case 112: // GS Drop Threshold {"N":112,"D1":850}
+        {
+            StaticJsonDocument<200> doc;
+            deserializeJson(doc, m_serialBuffer);
+            uint16_t value = doc["D1"] | MotorConfig::CLIFF_THRESHOLD_DEFAULT;
+            if (value >= 100 && value <= 1023) robot->getMotorSystem()->setCliffThreshold(value);
             Serial.print(F("{ok}"));
         }
         break;
@@ -718,6 +738,7 @@ void CommunicationInterface::updateLEDStatus(uint8_t mode, bool lowBattery) {
                     case 0:  leds[0] = CRGB::Green;  break;  // livre
                     case 1:  leds[0] = CRGB::Orange; break;  // aproximando
                     case 2:  leds[0] = CRGB::Red;    break;  // obstaculo
+                    case 3:  leds[0] = CRGB::Purple; break;  // GS: desnivel (buraco/degrau)
                     default: leds[0] = CRGB::Cyan;   break;  // waiting for the ESP32
                 }
                 FastLED.setBrightness(LEDConfig::DEFAULT_BRIGHTNESS);

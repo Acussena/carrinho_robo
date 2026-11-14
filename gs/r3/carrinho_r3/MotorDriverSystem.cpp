@@ -78,6 +78,7 @@ void MotorDriverSystem::updateSensors() {
             m_sensorData.ultrasonic.hasObstacle =
                 m_sensorData.ultrasonic.distanceCm <= MotorConfig::OBSTACLE_DISTANCE;
             m_sensorData.ultrasonic.lastUpdateTime = lastUltrasonicUpdate;
+            if (m_streamMode == 2) updateFloorSensors();  // GS: same 20 Hz sample
             m_newSample = true;
         }
     } else if (millis() - lastUltrasonicUpdate > 60) { // Update every 60ms
@@ -281,6 +282,35 @@ bool MotorDriverSystem::takeNewSample(uint16_t& distanceCm, uint32_t& timeMs) {
     distanceCm = m_sensorData.ultrasonic.distanceCm;
     timeMs = m_sensorData.ultrasonic.lastUpdateTime;
     return true;
+}
+
+/**
+ * @brief GS: Floor/drop detection with the line tracking sensors
+ *
+ * The line tracking module points at the floor. Over a floor it receives the IR
+ * reflection (low value); over a hole, a step or the edge of a curb nothing comes
+ * back (high value). Two of the three sensors above the threshold for two samples
+ * in a row = drop confirmed.
+ */
+void MotorDriverSystem::updateFloorSensors() {
+    m_sensorData.lineTracker.leftValue = analogRead(MotorPin::LINE_SENSOR_LEFT);
+    m_sensorData.lineTracker.middleValue = analogRead(MotorPin::LINE_SENSOR_MIDDLE);
+    m_sensorData.lineTracker.rightValue = analogRead(MotorPin::LINE_SENSOR_RIGHT);
+
+    m_sensorData.lineTracker.leftDetected = m_sensorData.lineTracker.leftValue >= m_cliffThreshold;
+    m_sensorData.lineTracker.middleDetected = m_sensorData.lineTracker.middleValue >= m_cliffThreshold;
+    m_sensorData.lineTracker.rightDetected = m_sensorData.lineTracker.rightValue >= m_cliffThreshold;
+
+    uint8_t withoutFloor = m_sensorData.lineTracker.leftDetected +
+                           m_sensorData.lineTracker.middleDetected +
+                           m_sensorData.lineTracker.rightDetected;
+
+    if (withoutFloor >= MotorConfig::CLIFF_MIN_SENSORS) {
+        if (m_cliffHits < 255) m_cliffHits++;
+    } else {
+        m_cliffHits = 0;
+    }
+    m_cliff = m_cliffHits >= MotorConfig::CLIFF_CONFIRM_SAMPLES;
 }
 
 /**

@@ -89,6 +89,12 @@ namespace MotorConfig {
     // CP2 TinyML: fixed-rate sampling streamed to the ESP32
     constexpr uint8_t STREAM_PERIOD_MS = 50;      // 20 Hz
     constexpr uint16_t STREAM_MAX_CM = 150;       // No echo / farther than this = STREAM_MAX_CM
+
+    // GS CitizenTech: line tracking sensors used as a floor/drop sensor (buraco, degrau, meio-fio)
+    // analogRead high = no light reflected = no floor (or a very dark surface) under the sensor
+    constexpr uint16_t CLIFF_THRESHOLD_DEFAULT = 850; // adjustable with {"N":112,"D1":value}
+    constexpr uint8_t CLIFF_MIN_SENSORS = 2;          // at least 2 of the 3 sensors without floor
+    constexpr uint8_t CLIFF_CONFIRM_SAMPLES = 2;      // 2 samples in a row (100 ms) to confirm
 }
 
 /**
@@ -163,7 +169,24 @@ public:
     /**
      * @brief CP2: enable/disable the fixed-rate ultrasonic stream
      */
-    void setStreaming(bool enabled) { m_streaming = enabled; }
+    void setStreaming(bool enabled) {
+        if (!enabled) m_streamMode = 0;
+        else if (m_streamMode == 0) m_streamMode = 1;   // keeps GS mode (2) if already on
+        m_streaming = m_streamMode != 0;
+    }
+
+    /**
+     * @brief GS: stream mode. 0 off, 1 CP2 ("millis,cm"), 2 GS ("millis,cm,L,M,R,V10,cliff")
+     */
+    void setStreamMode(uint8_t mode) { m_streamMode = mode > 2 ? 2 : mode; m_streaming = m_streamMode != 0; }
+    uint8_t getStreamMode() const { return m_streamMode; }
+
+    /**
+     * @brief GS: true while the floor sensors confirm a drop (no floor) in front of the car
+     */
+    bool cliffDetected() const { return m_cliff; }
+    void setCliffThreshold(uint16_t value) { m_cliffThreshold = value; }
+    uint16_t getCliffThreshold() const { return m_cliffThreshold; }
 
     /**
      * @brief CP2: get the newest streamed sample (once per sample)
@@ -175,6 +198,17 @@ private:
     // CP2 Stream State
     bool m_streaming = false;
     bool m_newSample = false;
+
+    // GS State
+    uint8_t m_streamMode = 0;
+    uint16_t m_cliffThreshold = MotorConfig::CLIFF_THRESHOLD_DEFAULT;
+    uint8_t m_cliffHits = 0;
+    bool m_cliff = false;
+
+    /**
+     * @brief GS: read the 3 line sensors as analog values and update the drop detection
+     */
+    void updateFloorSensors();
 
     /**
      * @brief CP2: ultrasonic reading without the 60 ms delay, no echo = STREAM_MAX_CM
