@@ -14,6 +14,31 @@
 |---|---|---|
 | **CP1** | Especificação do carrinho (MVP, backlog, Kanban, custos), chassi em 3D, circuito e teste dos motores | [`organizacao/`](organizacao), [`cad/`](cad), [`src/codigo.ino`](src/codigo.ino), seção [CP1](#cp1--documentação-técnica-do-chassi) abaixo |
 | **CP2** | **TinyML**: dataset com o sensor ultrassônico do carrinho → modelo treinado no Edge Impulse → inferência embarcada na ESP32-S3 → o resultado comanda os motores | **[`cp2/`](cp2)** |
+| **GS** | **CitizenTech — Fiscal de Calçadas**: + sensor de piso (seguidor de linha com função nova) para detectar buracos, degraus e meio-fios, decisão autônoma e **LLM (Gemini)** que gera alertas falados, gravidade, recomendações e relatório para a prefeitura | **[`gs/`](gs)** |
+
+---
+
+## GS — Fiscal de Calçadas (CitizenTech)
+
+📁 **Pasta da GS: [`gs/`](gs)** · leia primeiro o [README da GS](gs/README.md)
+
+🎥 **Vídeo de demonstração:** _(colar aqui o link do YouTube/Drive)_
+
+O robô percorre calçadas, corredores e prédios públicos mapeando **barreiras de acessibilidade** para pessoas com deficiência, idosos e quem usa carrinho de bebê:
+
+| Percebe | Com | Decide sozinho | IA interpreta e comunica |
+|---|---|---|---|
+| objeto bloqueando a passagem | ultrassônico + TinyML (CP2) | desacelera e desvia | LLM classifica a gravidade, fala o alerta e recomenda a ação |
+| **buraco, degrau, meio-fio sem rampa** | **sensor de piso: módulo seguidor de linha lido em analógico (sensor adicional da GS)** | para na hora, recua e gira (LED roxo) | idem + entra no relatório para a prefeitura |
+| várias barreiras seguidas | ESP32 | modo cauteloso (mais devagar) | "trecho crítico" |
+| bateria fraca, cabo solto, Wi-Fi ou internet fora | ESP32 / painel | economiza, para com segurança, segue autônomo | avisa no painel; IA com regras offline |
+
+| Documento | Conteúdo |
+|---|---|
+| [gs/README.md](gs/README.md) | problema, arquitetura, componentes, instalação, execução, calibração |
+| [gs/docs/integracao_sensores_ia.md](gs/docs/integracao_sensores_ia.md) | protocolo, fusão dos sensores, autonomia, prompt e saída do LLM |
+| [gs/docs/testes.md](gs/docs/testes.md) | testes de funcionamento e de falhas |
+| [gs/docs/roteiro_video.md](gs/docs/roteiro_video.md) | roteiro do vídeo de 6 min |
 
 ---
 
