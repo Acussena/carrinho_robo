@@ -31,6 +31,7 @@ Evidências em [`logs/`](logs):
 | P2 | Frente levantada ~10 cm (sem piso) | valores altos | ✅ **734–749** nos três sensores |
 | P3 | Calibração | limiar entre P1 e P2 | ✅ limiar **550** (o padrão inicial, 850, ficava acima do valor sem piso); com a frente levantada: `desnivel: true` |
 | P4 | Superfície escura | não confundir com desnível | ⚠️ uma mesa escura leu ~405 (abaixo de 550, ok). Faixa preta não testada: limitação documentada |
+| P5 | Mesa de **vidro** transparente | não confundir com desnível | ⚠️ 15/11: lê ~730 ("sem piso"), porque o infravermelho atravessa o vidro e não volta. O carrinho para e não avança (falha segura). Com um pano sobre o vidro: **0 / 0 / 0**. Limitação documentada |
 
 ## 3. Comportamento autônomo
 

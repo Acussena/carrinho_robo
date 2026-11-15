@@ -20,7 +20,7 @@ O robô **nunca** depende do PC para se mover com segurança. O painel acrescent
 | piso comum (medido no chão do teste) | muito | **0 / 0 / 0** |
 | borda, degrau, frente levantada 10 cm (medido) | nada | **~735–750** |
 
-Limiar padrão: **550**, no meio das duas leituras com folga. Uma superfície mais escura medida no teste (mesa) leu ~405, abaixo do limiar.
+Limiar padrão: **550**, no meio das duas leituras com folga. Uma superfície mais escura medida no teste (mesa) leu ~405, abaixo do limiar. **Vidro transparente** lê como "sem piso" (~730), porque a luz atravessa: o carrinho para e não avança (falha segura). Por isso, os testes em mesa de vidro usam um pano por cima.
 
 - **Regra de desnível** (`MotorDriverSystem::updateFloorSensors`): os sensores são lidos a **cada 4 ms (250 Hz)**, separados da amostra de 20 Hz do ultrassom. Basta **1 dos 3** sensores acima do limiar (padrão 550) por **3 leituras seguidas (12 ms)**, porque o primeiro sensor a passar da borda já indica risco de queda. As 3 leituras filtram ruído elétrico.
 - **Por que a reação precisa ser rápida:** o sensor aponta para baixo e só "vê" a borda quando já está sobre ela. Na primeira versão, que pedia 2 sensores e 2 amostras de 50 ms, a detecção levava até ~150 ms, e o carrinho ainda deslizava depois de desligar os motores. Isso deixava a frente para fora da mesa.
