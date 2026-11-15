@@ -391,10 +391,12 @@ void iniciarDesvioDesnivel(bool novo) {
   if (novo) registrarEvento(EV_DESNIVEL, 1.0);
   ultimoDesvioDesnivel = millis();
   classeAtual = DESNIVEL;
-  manobra = PARA_DESNIVEL;
+  // a R3 já freou sozinha (pulso de ré) no instante em que viu a borda; aqui a ré começa
+  // direto, sem a parada de 300 ms que deixava o carrinho parado em cima da borda
+  manobra = RE_DESNIVEL;
   inicioManobra = millis();
-  enviarAcao(DIR_PARAR, 0, DESNIVEL);
-  Serial.println("# DESNIVEL detectado pelo sensor de piso -> para, ré e gira");
+  enviarAcao(DIR_RE, VEL_MANOBRA, DESNIVEL);
+  Serial.println("# DESNIVEL detectado pelo sensor de piso -> ré e gira");
 }
 
 // manobras sem travar o loop

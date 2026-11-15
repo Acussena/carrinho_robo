@@ -22,7 +22,8 @@ O robô **nunca** depende do PC para se mover com segurança. O painel acrescent
 
 Limiar padrão: **550**, no meio das duas leituras com folga. Uma superfície mais escura medida no teste (mesa) leu ~405, abaixo do limiar.
 
-- **Regra de desnível** (`MotorDriverSystem::updateFloorSensors`): pelo menos **2 dos 3** sensores acima do limiar (padrão 550, calibrado no carrinho) por **2 amostras seguidas** (100 ms). Isso evita alarme falso por uma leitura isolada ou por um risco escuro sob um só sensor.
+- **Regra de desnível** (`MotorDriverSystem::updateFloorSensors`): os sensores são lidos a **cada 4 ms (250 Hz)**, separados da amostra de 20 Hz do ultrassom. Basta **1 dos 3** sensores acima do limiar (padrão 550) por **3 leituras seguidas (12 ms)**, porque o primeiro sensor a passar da borda já indica risco de queda. As 3 leituras filtram ruído elétrico.
+- **Por que a reação precisa ser rápida:** o sensor aponta para baixo e só "vê" a borda quando já está sobre ela. Na primeira versão, que pedia 2 sensores e 2 amostras de 50 ms, a detecção levava até ~150 ms, e o carrinho ainda deslizava depois de desligar os motores. Isso deixava a frente para fora da mesa.
 
 ## 2. Protocolo R3 ↔ ESP32 (cabo Camera UART, 9600)
 
@@ -39,8 +40,8 @@ Exemplo de linha: `48213,37,212,198,240,78,0,6` = 48,2 s, 37 cm à frente, piso 
 - **bateria < 5,5 V** = chave da bateria desligada e placa alimentada só pela USB: não gera alerta de bateria baixa, e o painel mostra "desligada (só USB)".
 
 **Segurança dupla para o desnível:**
-1. A **R3** guarda a última direção pedida. Se for para frente (1, 5 ou 7) e o desnível estiver confirmado, ela **para os motores na hora**, sem esperar a ESP32, e recusa novos comandos de frente.
-2. A **ESP32** vê a flag e assume o controle com uma manobra: parada 300 ms → ré 700 ms → giro 600 ms. Depois descarta a janela do TinyML e volta a classificar.
+1. A **R3** guarda a última direção pedida. Se for para frente (1, 5 ou 7) e o desnível estiver confirmado, ela **freia na hora** com um pulso de ré de 150 ms (freio ativo, porque só desligar os motores deixa o carrinho deslizar), sem esperar a ESP32. Depois para e recusa novos comandos de frente.
+2. A **ESP32** vê a flag e assume o controle com uma manobra: ré 700 ms → giro 600 ms. Depois descarta a janela do TinyML e volta a classificar.
 
 ## 3. ESP32: fusão TinyML + piso + bateria
 
@@ -87,6 +88,7 @@ O modelo responde em **JSON** (`responseMimeType: application/json`):
 ```
 
 - O **alerta_voz** é falado pelo navegador (Web Speech API, voz pt-BR) e fica na lista de alertas.
+- **Desnível tem aviso imediato:** assim que a ocorrência chega, o painel fala "Cuidado! Desnível à frente!", cortando qualquer outra frase, sem esperar o LLM. A análise do LLM vem 1 a 2 s depois, com a gravidade e a recomendação. O painel consulta o robô 5 vezes por segundo e o navegador consulta o painel 4 vezes por segundo, para o aviso sair em menos de meio segundo.
 - **A voz acompanha o robô:** os alertas em tempo real usam um modelo *lite* (`gemini-3.5-flash-lite`, ~1,1 s por análise); relatório e perguntas usam o `gemini-3.5-flash`. Ao parar a patrulha (botão Parar ou tecla OK), a voz se cala na hora. Alertas com mais de 10 s de atraso, ou que chegam com o robô parado, ficam só na tela e no log. A frase em curso nunca é cortada por outro alerta: os que chegam enquanto ela é dita esperam, e ao final só o mais recente é falado. O fim da fala é detectado pelo estado do sintetizador, porque o navegador às vezes não dispara o evento de término.
 - Severidade, explicação e recomendação vão para o cartão da ocorrência e para o **CSV** (`gs/painel/saida/ocorrencias_*.csv`).
 - **Pergunte à IA:** perguntas livres ("esta calçada é acessível?") são respondidas com base nos dados da patrulha.

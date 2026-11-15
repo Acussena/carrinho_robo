@@ -78,8 +78,14 @@ void MotorDriverSystem::updateSensors() {
             m_sensorData.ultrasonic.hasObstacle =
                 m_sensorData.ultrasonic.distanceCm <= MotorConfig::OBSTACLE_DISTANCE;
             m_sensorData.ultrasonic.lastUpdateTime = lastUltrasonicUpdate;
-            if (m_streamMode == 2) updateFloorSensors();  // GS: same 20 Hz sample
             m_newSample = true;
+        }
+        // GS: floor sensors read every 4 ms (250 Hz), not only at the 20 Hz sample,
+        // so a drop is caught a few centimetres earlier
+        static uint32_t lastFloorUpdate = 0;
+        if (m_streamMode == 2 && millis() - lastFloorUpdate >= MotorConfig::FLOOR_PERIOD_MS) {
+            lastFloorUpdate = millis();
+            updateFloorSensors();
         }
     } else if (millis() - lastUltrasonicUpdate > 60) { // Update every 60ms
         lastUltrasonicUpdate = millis();

@@ -275,7 +275,7 @@ void CommunicationInterface::executeCommand(int cmdId, RobotController* robot) {
                 uint8_t dir = doc["D1"];
                 robot->setTinyMLDir(dir);
                 if (robot->tinyMLForwardBlocked()) {
-                    robot->getMotorSystem()->stop();   // GS: drop ahead, forward refused
+                    // GS: drop ahead, forward refused (RobotController::update brakes and stops)
                 } else {
                     robot->getModeManager()->executeManualControl(dir, doc["D2"]);
                 }

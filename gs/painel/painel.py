@@ -329,6 +329,9 @@ class IA:
             atrasado = time.time() - ev.get("recebido", time.time()) > 10
             parado = self.estado.status.get("patrulhando") is False
             falar = not atrasado and not parado
+            # desnível repetido: o aviso imediato já foi falado, a repetição fica só na tela
+            if tipo == "desnivel" and "(repetição)" in analise.get("fonte", ""):
+                falar = False
             self.estado.adicionar_alerta(analise.get("alerta_voz", ""), analise.get("severidade", "media"),
                                          falar, analise.get("fonte", "") + ("" if falar else " (não falado: atrasado ou robô parado)"))
             print("[IA] %s -> %s | %s" % (tipo, analise.get("severidade"), analise.get("alerta_voz")))
@@ -405,6 +408,10 @@ class Fonte:
             return
         self.ultimo_id = ev["id"]
         ev = self.estado.adicionar_ocorrencia(ev)
+        if ev["tipo"] == "desnivel" and self.estado.status.get("patrulhando") is not False:
+            # risco de queda: aviso imediato, sem esperar o LLM (que leva 1 a 2 s);
+            # a análise do LLM chega depois, com a gravidade e a recomendação
+            self.estado.adicionar_alerta("Cuidado! Desnível à frente!", "alta", True, "sensor (imediato)", interromper=True)
         if ev["tipo"] in EVENTOS_ANALISADOS:
             self.ia.enfileirar(ev)
         elif ev["tipo"] == "patrulha":
@@ -450,7 +457,7 @@ class FonteHTTP(Fonte):
                         self.novo_evento(ev)
             except Exception:
                 pass
-            time.sleep(0.5)
+            time.sleep(0.2)   # 5 consultas por segundo: o alerta de desnível sai rápido
 
     def comando(self, acao, valor=0):
         q = urllib.parse.urlencode({"acao": acao, "valor": valor})

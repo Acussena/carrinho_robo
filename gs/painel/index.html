@@ -315,7 +315,7 @@ async function relatorio() {
 $("pergunta").addEventListener("keydown", e => { if (e.key === "Enter") perguntar(); });
 if ("speechSynthesis" in window) speechSynthesis.getVoices();
 atualizar();
-setInterval(atualizar, 700);
+setInterval(atualizar, 250);   // 4x por segundo: o aviso de desnível é falado sem atraso
 </script>
 </body>
 </html>

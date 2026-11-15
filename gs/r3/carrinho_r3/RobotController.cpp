@@ -110,8 +110,19 @@ void RobotController::update() {
     }
 
     // GS: local safety, independent of the ESP32 - never drive forward into a drop
+    // Active brake: stopping the motors only lets the car coast a few centimetres, so the
+    // first 150 ms after the edge is seen are a short reverse pulse that kills the momentum.
+    static uint32_t brakeStart = 0;
+    static bool braking = false;
     if (m_currentMode == OperationMode::TinyML && tinyMLForwardBlocked()) {
-        m_motorSystem->stop();
+        if (!braking) { braking = true; brakeStart = millis(); }
+        if (millis() - brakeStart < MotorConfig::CLIFF_BRAKE_MS) {
+            m_modeManager->executeManualControl(2, MotorConfig::CLIFF_BRAKE_SPEED);
+        } else {
+            m_motorSystem->stop();
+        }
+    } else if (!m_motorSystem->cliffDetected()) {
+        braking = false;
     }
 
     // 2. Process Inputs (Serial, IR, Buttons) - Must execute, otherwise cannot switch modes
