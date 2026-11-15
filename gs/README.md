@@ -132,6 +132,7 @@ python gs/painel/painel.py --ip 192.168.0.50 --local "Calçada da Av. Paulista, 
 ```
 
 4. Abra <http://localhost:8000>, deixe **voz** marcada e clique em **Iniciar patrulha** (ou aperte **0** no controle IR).
+5. **Reiniciar painel** (botão no topo) zera ocorrências, alertas e contadores para uma nova patrulha ou gravação, sem perder a conexão com o robô. Cada reinício abre um novo CSV em `gs/painel/saida/`.
 
 ### 6.4 Calibrar o sensor de piso (1 minuto)
 

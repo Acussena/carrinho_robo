@@ -83,12 +83,29 @@ class Estado:
         self.alertas = []          # mensagens para falar/mostrar (id crescente)
         self.proximo_alerta = 1
         self.fonte = ""
+        self.novo_log()
+
+    def novo_log(self):
         self.inicio = datetime.now()
         os.makedirs(PASTA_SAIDA, exist_ok=True)
         self.arquivo_csv = os.path.join(PASTA_SAIDA, "ocorrencias_%s.csv" % self.inicio.strftime("%Y%m%d_%H%M%S"))
         with open(self.arquivo_csv, "w", newline="", encoding="utf-8") as f:
             csv.writer(f).writerow(["hora", "id", "tipo", "dist_cm", "piso_l", "piso_m", "piso_r",
                                     "bateria_v", "confianca", "severidade", "alerta", "recomendacao", "fonte_ia"])
+
+    def reiniciar(self):
+        """Zera ocorrências, alertas e contadores (nova patrulha/gravação); a conexão com o robô continua."""
+        with self.trava:
+            self.ocorrencias = []
+            self.alertas = []
+            self.novo_log()
+        self.adicionar_alerta("Painel reiniciado. Pronto para uma nova patrulha.", "info", True)
+
+    def contagem(self):
+        cont = {}
+        for ev in self.ocorrencias:
+            cont[ev["tipo"]] = cont.get(ev["tipo"], 0) + 1
+        return cont
 
     def atualizar_status(self, status):
         with self.trava:
@@ -558,6 +575,7 @@ def criar_handler(estado, ia, fonte):
                         "status": estado.status, "conectado": estado.conectado(), "fonte": fonte.nome,
                         "local": estado.local, "ia": ia.info(),
                         "ocorrencias": [e for e in estado.ocorrencias if e["tipo"] != "patrulha"][-30:][::-1],
+                        "contagem": estado.contagem(),
                         "alertas": estado.alertas[-30:],
                     }
                 self._json(dados)
@@ -573,7 +591,12 @@ def criar_handler(estado, ia, fonte):
                 self.send_error(404)
 
         def do_POST(self):
-            if self.path == "/api/relatorio":
+            if self.path == "/api/reiniciar":
+                estado.reiniciar()
+                ia.ultimo_por_tipo.clear()
+                print("[painel] reiniciado - novo log: %s" % estado.arquivo_csv)
+                self._json({"ok": True, "log": estado.arquivo_csv})
+            elif self.path == "/api/relatorio":
                 self._json(ia.relatorio())
             elif self.path == "/api/perguntar":
                 pergunta = str(self._corpo().get("pergunta", ""))[:500]

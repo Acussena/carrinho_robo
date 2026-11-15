@@ -52,6 +52,7 @@
     <span id="conexao" class="pill">conectando…</span>
     <span id="iainfo" class="pill">IA</span>
     <label class="row" style="gap:4px"><input type="checkbox" id="voz" checked> voz</label>
+    <button onclick="reiniciar()" title="Zera ocorrências, alertas e contadores para uma nova patrulha">Reiniciar painel</button>
   </div>
 </header>
 <main>
@@ -173,7 +174,9 @@ async function atualizar() {
     $("manobra").textContent = dc.manobra && dc.manobra !== "nenhuma" ? "manobra: " + dc.manobra : "";
     $("bateria").textContent = s.bateria_ligada === false ? "desligada (só USB)" : s.bateria_v ? s.bateria_v.toFixed(1) + " V" : "--";
     $("uptime").textContent = s.uptime_ms ? "ligado há " + Math.round(s.uptime_ms / 1000) + " s" : "";
-    const c = s.contagem || {};
+  }
+  {
+    const c = d.contagem || {};   // contagem desde o último "Reiniciar painel"
     $("n-desnivel").textContent = c.desnivel || 0;
     $("n-obstaculo").textContent = c.obstaculo || 0;
     $("n-critico").textContent = c.trecho_critico || 0;
@@ -207,6 +210,15 @@ async function perguntar() {
   $("saida").textContent = "Perguntando à IA…";
   const r = await (await fetch("/api/perguntar", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({pergunta: q})})).json();
   $("saida").textContent = r.resposta;
+}
+
+async function reiniciar() {
+  if (!confirm("Reiniciar o painel? As ocorrências e os alertas na tela serão zerados (os logs já salvos continuam na pasta saida).")) return;
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  await fetch("/api/reiniciar", {method: "POST"});
+  ultimoAlertaFalado = 0;
+  $("saida").style.display = "none";
+  atualizar();
 }
 
 async function relatorio() {
