@@ -49,7 +49,7 @@ Ordem de prioridade a cada volta do `loop()`:
 1. **R3 sem dados há 2 s** → ocorrência `falha_r3`, não envia ação (a R3 para em 1 s).
 2. **Desnível** → manobra de desnível (interrompe tudo, exceto a ré em andamento).
 3. **Manobra em andamento** → continua sem bloquear o loop.
-4. **Distância < 20 cm andando para frente** → para (regra de segurança do CP2).
+4. **Distância < 25 cm andando para frente** → para. Se continuar perto por **0,8 s** sem o TinyML confirmar `obstaculo` (tecido macio, objeto fora do dataset), a **regra de desvio garantido** faz ré + giro e registra a ocorrência com confiança 0 (= decidida pela regra).
 5. **TinyML** a cada 250 ms sobre a janela de 20 leituras (modelo do CP2, 96,55% no teste). Abaixo de 60% de confiança vale `incerto` e a ação anterior é mantida.
 
 **Adaptação de comportamento (autonomia):**

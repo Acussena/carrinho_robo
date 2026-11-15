@@ -57,15 +57,17 @@ const float CONFIANCA_MIN = 0.60;
 
 // ---------- Ações (comando 110 da R3) ----------
 const int DIR_FRENTE = 1, DIR_RE = 2, DIR_DIREITA = 4, DIR_PARAR = 9;
-const int VEL_RAPIDO = 150, VEL_DEVAGAR = 90;               // modo normal
-const int VEL_RAPIDO_CAUTELA = 110, VEL_DEVAGAR_CAUTELA = 75; // trecho crítico ou bateria baixa
+// 150 -> 120 após o teste na cama: em superfície macia o eco só volta perto, e mais devagar dá tempo de reagir
+const int VEL_RAPIDO = 120, VEL_DEVAGAR = 90;               // modo normal
+const int VEL_RAPIDO_CAUTELA = 100, VEL_DEVAGAR_CAUTELA = 75; // trecho crítico ou bateria baixa
 const int VEL_MANOBRA = 150;
 const unsigned long TEMPO_RE_MS = 500;
 const unsigned long TEMPO_GIRO_MS = 600;
 const unsigned long TEMPO_PARADA_DESNIVEL_MS = 300;
 const unsigned long TEMPO_RE_DESNIVEL_MS = 700;
 const unsigned long REPETE_ACAO_MS = 100;    // mantém a R3 viva (timeout dela é 1 s)
-const int DISTANCIA_SEGURANCA_CM = 20;
+const int DISTANCIA_SEGURANCA_CM = 25;           // 20 -> 25 após o teste na cama
+const unsigned long PARADO_PERTO_MAX_MS = 800;   // parado perto por mais que isso = desvia mesmo sem o modelo
 
 // ---------- Sensor de piso (seguidor de linha) ----------
 // calibrado no carrinho: piso = 0, sem piso (frente levantada 10 cm) = ~740 -> limiar no meio, com folga
@@ -588,6 +590,25 @@ void loop() {
 
   if (!executandoManobra()) {
     if (acaoDir == DIR_FRENTE && pertoDemais()) enviarAcao(DIR_PARAR, 0, classeAtual);
+
+    // regra de segurança (fusão com o TinyML): se ficou parado perto de algo por 0,8 s e o
+    // modelo ainda não confirmou "obstaculo" (ex.: tecido macio, objeto fora do dataset), desvia assim mesmo
+    static unsigned long pertoDesde = 0;
+    if (pertoDemais() && patrulhando) {
+      if (pertoDesde == 0) pertoDesde = millis();
+      if (millis() - pertoDesde > PARADO_PERTO_MAX_MS) {
+        pertoDesde = 0;
+        Serial.printf("# regra de seguranca: %d cm ha %lu ms -> desvia
+", distanciaRecente(), PARADO_PERTO_MAX_MS);
+        registrarEvento(EV_OBSTACULO, 0);   // confiança 0 = decidido pela regra, não pelo modelo
+        classeAtual = OBSTACULO;
+        manobra = RE;
+        inicioManobra = millis();
+        enviarAcao(DIR_RE, VEL_MANOBRA, OBSTACULO);
+      }
+    } else {
+      pertoDesde = 0;
+    }
 
     static unsigned long proximaInferencia = 0;
     if (amostras == N_JANELA && millis() >= proximaInferencia) {

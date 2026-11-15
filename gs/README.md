@@ -55,9 +55,9 @@ Detalhes da integração sensores ↔ IA: **[docs/integracao_sensores_ia.md](doc
 
 | Situação detectada | Quem detecta | O que o robô faz | LED | Ocorrência |
 |---|---|---|---|---|
-| Caminho livre | TinyML (ultrassônico) | frente rápido (150; 110 em cautela) | verde | — |
+| Caminho livre | TinyML (ultrassônico) | frente rápido (120; 100 em cautela) | verde | — |
 | Algo se aproximando | TinyML | frente devagar (90; 75 em cautela) | laranja | — |
-| Objeto parado perto | TinyML | ré + giro | vermelho | `obstaculo` |
+| Objeto parado perto | TinyML (ou regra: parado a < 25 cm por 0,8 s) | ré + giro | vermelho | `obstaculo` |
 | **Sem piso à frente** (buraco, degrau, borda) | **sensor de piso** (R3) | **para na hora (R3), ESP32 faz parada → ré → giro** | **roxo** | `desnivel` |
 | 2 barreiras em 30 s | ESP32 | **modo cauteloso** por 30 s (velocidades menores) | — | `trecho_critico` |
 | Bateria < 7,0 V por 5 s | ESP32 | velocidades de economia | — | `bateria_baixa` |

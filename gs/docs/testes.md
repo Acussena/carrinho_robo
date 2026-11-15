@@ -73,4 +73,7 @@ Evidências em [`logs/`](logs):
 | Alerta de "bateria baixa" com o carrinho parado | chave da bateria desligada: a placa media só a USB (4,5 V) | abaixo de 5,5 V = "bateria desligada (só USB)", sem alarme |
 | Obstáculos viravam ocorrência com o carrinho em standby | a ESP32 não sabia o modo da R3 | a R3 envia o modo; só há ocorrência durante a patrulha |
 | Erro 404 do LLM | `gemini-2.5-flash` descontinuado para chaves novas | modelo `gemini-3.5-flash` + lista de reserva (404/429/503/timeout) |
+| Carrinho encostava na cama sem desviar | parado, a cama é medida (11 cm, `obstaculo` 90%); andando a 150, o tecido só devolve eco perto demais para reagir | velocidade livre 150 → 120, segurança 20 → 25 cm e **regra de desvio garantido**: parado perto por 0,8 s = ré + giro mesmo sem o modelo confirmar ⏳ *gravar na ESP32 e testar de novo* |
+| Voz parou de falar | bug do Chrome: `speak()` logo após `cancel()` é descartado | pausa de 150 ms antes de falar + botão **Testar voz** |
+| Voz continuava depois de parar o carrinho | análise do LLM levava ~6 s e o navegador enfileirava os alertas | modelo *lite* (~1,1 s), voz cala ao parar, alertas atrasados não são falados |
 | Upload da R3 exigiria soltar o cabo da câmera | a ESP32 transmite na mesma linha serial | a ESP32 fica em modo de gravação (silenciosa) durante o upload da R3 |
