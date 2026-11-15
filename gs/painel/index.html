@@ -133,9 +133,19 @@ function barra(nome, v, max, limiar) {
   return `<div class="row" style="margin:4px 0"><span class="lbl">${nome}</span><div class="bar"><i style="width:${p}%"></i>${l}</div><span class="val">${v}</span></div>`;
 }
 
-let falaPendente = null;
-function falar(texto) {
+let falaPendente = null;   // timer do speak()
+let falando = false;       // uma frase está sendo dita (ou prestes a começar)
+let proximoAlerta = null;  // o alerta mais recente que chegou enquanto falava (só um, o mais novo)
+let patrulhaAtual = null;
+let falaAtual = null;          // referência à frase em curso (sem ela o Chrome pode descartá-la)
+let falaPrioritaria = false;   // "Patrulha encerrada", respostas: não são cortadas pela parada
+let inicioFala = 0;
+
+function falar(texto, prioritaria) {
   if (!$("voz").checked || !("speechSynthesis" in window) || !texto) return;
+  falando = true;
+  falaPrioritaria = !!prioritaria;
+  inicioFala = Date.now();
   // o Chrome descarta em silêncio um speak() feito logo após cancel(): espera um instante
   clearTimeout(falaPendente);
   falaPendente = setTimeout(() => {
@@ -144,9 +154,46 @@ function falar(texto) {
     u.rate = 1.1;
     const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith("pt"));
     if (v) u.voice = v;
+    falaAtual = u;
     speechSynthesis.resume();   // destrava a fila se o navegador a deixou pausada
     speechSynthesis.speak(u);
   }, 150);
+}
+
+// o fim da frase é detectado pelo estado do sintetizador, sem depender do evento "onend"
+// (que o navegador às vezes não dispara e deixaria a voz travada esperando)
+setInterval(() => {
+  if (!falando || !("speechSynthesis" in window)) return;
+  const ocupado = speechSynthesis.speaking || speechSynthesis.pending;
+  if (!ocupado && Date.now() - inicioFala > 700) {
+    falando = false;
+    falaPrioritaria = false;
+    falarProximo();
+  } else if (Date.now() - inicioFala > 20000) {   // trava de segurança: nenhuma frase dura 20 s
+    calar();
+  }
+}, 250);
+
+// terminou uma frase: fala o alerta que ficou esperando, se ainda for atual
+function falarProximo() {
+  const a = proximoAlerta;
+  proximoAlerta = null;
+  if (!a || falando) return;
+  const recente = !a.ts || Date.now() / 1000 - a.ts < 10;
+  if (recente && (patrulhaAtual !== false || a.interromper || a.origem === "resposta"))
+    falar(a.texto, a.interromper || a.origem === "resposta");
+}
+
+// novo alerta: não corta a frase atual (só "interromper" corta); enquanto fala, guarda só o mais novo
+function anunciar(a) {
+  if (a.interromper || a.origem === "resposta") { calar(); falar(a.texto, true); return; }
+  if (falando || speechSynthesis.speaking) {
+    // uma repetição ("Novo obstáculo detectado.") não toma o lugar de um alerta completo
+    const repeticao = (a.origem || "").includes("repetição");
+    if (!repeticao || !proximoAlerta) proximoAlerta = a;
+    return;
+  }
+  falar(a.texto);
 }
 
 function testarVoz() {
@@ -207,8 +254,12 @@ async function atualizar() {
   // fala os alertas novos (na primeira carga, não repete os antigos)
   // a voz acompanha o robô: patrulha parou (botão Parar, tecla OK) -> cala na hora
   const patrulhando = (d.status || {}).patrulhando;
-  if (patrulhaAnterior === true && patrulhando === false) calar();
+  // robô parou: cala o alerta em curso, mas não corta "Patrulha encerrada" nem uma resposta
+  if (patrulhaAnterior === true && patrulhando === false) {
+    if (falaPrioritaria) proximoAlerta = null; else calar();
+  }
   patrulhaAnterior = patrulhando;
+  patrulhaAtual = patrulhando;
   // só alertas recentes (até 10 s) e, se vierem vários juntos, só o mais novo
   const agora = Date.now() / 1000;
   const novos = d.alertas.filter(a => ultimoAlertaFalado !== null && a.id > ultimoAlertaFalado && a.falar && (!a.ts || agora - a.ts < 10));
@@ -219,13 +270,15 @@ async function atualizar() {
   if (novos.length) {
     const ultimo = novos[novos.length - 1];
     if (patrulhando === false && !ultimo.interromper && ultimo.origem !== "resposta") return;
-    calar();                       // pula o que estava falando: vale o alerta mais recente
-    falar(ultimo.texto);
+    anunciar(ultimo);
   }
 }
 
 function calar() {
   clearTimeout(falaPendente);
+  proximoAlerta = null;
+  falando = false;
+  falaPrioritaria = false;
   if ("speechSynthesis" in window) speechSynthesis.cancel();
 }
 
