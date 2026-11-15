@@ -424,14 +424,17 @@ void CommunicationInterface::processIRRemote(RobotController* robot) {
     
     if (getIRButton(&IRrecv_button)) {
         m_IRrecv_enabled = true;
+        // GS: a new press (not the repeat code of a held key) releases the safety stop
+        m_manualHold = false;
+        m_manualBrakeStart = 0;
     }
-    
+
     if (m_IRrecv_enabled) {
         // Process Button
         switch (IRrecv_button) {
-            case 1: // Forward
+            case 1: // Forward (GS: with drop/obstacle protection)
                 robot->setMode(OperationMode::ManualControl);
-                robot->getModeManager()->executeManualControl(1, m_manualSpeed);
+                manualForward(robot);
                 break;
             case 2: // Backward
                 robot->setMode(OperationMode::ManualControl);
@@ -562,6 +565,49 @@ void CommunicationInterface::processIRRemote(RobotController* robot) {
             m_IRrecv_enabled = false;
             m_IR_PreMillis = millis();
         }
+    }
+}
+
+/**
+ * @brief GS: forward key with drop/obstacle protection
+ *
+ * Holding the key repeats this every loop. A drop brakes at once (reverse pulse, then
+ * stop); an obstacle slows the car from 40 cm and stops it at 15 cm. After a stop the
+ * car stays still while the key is held: it only moves again on a new press, and
+ * even then never forward while the floor sensors still see the drop.
+ */
+void CommunicationInterface::manualForward(RobotController* robot) {
+    MotorDriverSystem* motors = robot->getMotorSystem();
+    FunctionModeManager* modes = robot->getModeManager();
+
+    if (!m_manualHold && motors->cliffDetected()) {
+        m_manualHold = true;
+        m_manualBrakeStart = millis();
+        if (m_manualBrakeStart == 0) m_manualBrakeStart = 1;
+        Serial.println(F("# manual: drop -> brake"));
+    }
+    if (!m_manualHold) {
+        uint16_t cm = motors->getSensorData().ultrasonic.distanceCm;
+        if (cm <= MotorConfig::MANUAL_STOP_CM) {
+            m_manualHold = true;
+            m_manualBrakeStart = 0;
+            Serial.println(F("# manual: obstacle -> stop"));
+        } else {
+            uint8_t speed = m_manualSpeed;
+            if (cm < MotorConfig::MANUAL_SLOW_CM && speed > MotorConfig::MANUAL_MIN_SPEED) {
+                // slows down linearly between 40 cm (normal speed) and 15 cm (minimum)
+                speed = map(cm, MotorConfig::MANUAL_STOP_CM, MotorConfig::MANUAL_SLOW_CM,
+                            MotorConfig::MANUAL_MIN_SPEED, m_manualSpeed);
+            }
+            modes->executeManualControl(1, speed);
+            return;
+        }
+    }
+    // stopped by the protection
+    if (m_manualBrakeStart && millis() - m_manualBrakeStart < MotorConfig::CLIFF_BRAKE_MS) {
+        modes->executeManualControl(2, MotorConfig::CLIFF_BRAKE_SPEED);
+    } else {
+        motors->stop();
     }
 }
 

@@ -141,6 +141,14 @@ private:
     uint8_t m_manualSpeed;          // Manual Control Speed
     uint8_t m_servoAngle;           // Current Servo Angle (0-180, default 90)
     uint8_t m_tinymlClass;          // CP2: last class predicted by the ESP32 (LED color)
+    bool m_manualHold = false;      // GS: forward key stopped by a drop/obstacle, waits for a new press
+    uint32_t m_manualBrakeStart = 0;// GS: start of the reverse pulse after a drop (0 = no pulse)
+
+    /**
+     * @brief GS: forward key with protection - slows down near an obstacle, stops at
+     * 15 cm, brakes at once on a drop; stays stopped until the key is pressed again
+     */
+    void manualForward(RobotController* robot);
     
     /**
      * @brief Get IR Button Number

@@ -80,16 +80,21 @@ void MotorDriverSystem::updateSensors() {
             m_sensorData.ultrasonic.lastUpdateTime = lastUltrasonicUpdate;
             m_newSample = true;
         }
-        // GS: floor sensors read every 4 ms (250 Hz), not only at the 20 Hz sample,
-        // so a drop is caught a few centimetres earlier
-        static uint32_t lastFloorUpdate = 0;
-        if (m_streamMode == 2 && millis() - lastFloorUpdate >= MotorConfig::FLOOR_PERIOD_MS) {
-            lastFloorUpdate = millis();
-            updateFloorSensors();
-        }
     } else if (millis() - lastUltrasonicUpdate > 60) { // Update every 60ms
+        // GS: fast reading (no 60 ms delay) so the IR remote and the floor check stay responsive
         lastUltrasonicUpdate = millis();
-        updateUltrasonic();
+        m_sensorData.ultrasonic.distanceCm = sampleUltrasonicFast();
+        m_sensorData.ultrasonic.hasObstacle =
+            m_sensorData.ultrasonic.distanceCm <= MotorConfig::OBSTACLE_DISTANCE;
+        m_sensorData.ultrasonic.lastUpdateTime = lastUltrasonicUpdate;
+    }
+
+    // GS: floor sensors read every 4 ms (250 Hz) in every mode (patrol and IR remote),
+    // not only at the 20 Hz sample, so a drop is caught a few centimetres earlier
+    static uint32_t lastFloorUpdate = 0;
+    if (millis() - lastFloorUpdate >= MotorConfig::FLOOR_PERIOD_MS) {
+        lastFloorUpdate = millis();
+        updateFloorSensors();
     }
     
     // Update voltage (Low frequency update)

@@ -43,6 +43,11 @@ Exemplo de linha: `48213,37,212,198,240,78,0,6` = 48,2 s, 37 cm à frente, piso 
 1. A **R3** guarda a última direção pedida. Se for para frente (1, 5 ou 7) e o desnível estiver confirmado, ela **freia na hora** com um pulso de ré de 150 ms (freio ativo, porque só desligar os motores deixa o carrinho deslizar), sem esperar a ESP32. Depois para e recusa novos comandos de frente.
 2. A **ESP32** vê a flag e assume o controle com uma manobra: ré 700 ms → giro 600 ms. Depois descarta a janela do TinyML e volta a classificar.
 
+**Proteção também no controle remoto (setas):** a seta para frente passa pela mesma segurança, na própria R3:
+- **desnível** → freia na hora (pulso de ré de 150 ms) e para;
+- **obstáculo** → reduz a velocidade a partir de 40 cm e para a 15 cm;
+- depois de parar, segurar a seta **não** faz o carrinho andar: só um **novo aperto** libera. Mesmo assim, ele não vai para frente enquanto o sensor ainda vê o desnível. Ré e giros continuam livres, para sair da borda.
+
 ## 3. ESP32: fusão TinyML + piso + bateria
 
 Ordem de prioridade a cada volta do `loop()`:

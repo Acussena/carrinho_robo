@@ -98,6 +98,10 @@ namespace MotorConfig {
     constexpr uint8_t FLOOR_PERIOD_MS = 4;            // floor sensors read at 250 Hz
     constexpr uint16_t CLIFF_BRAKE_MS = 150;          // reverse pulse when the edge is seen (active brake)
     constexpr uint8_t CLIFF_BRAKE_SPEED = 200;
+    // GS: IR remote forward key - slows down from 40 cm and stops at 15 cm
+    constexpr uint16_t MANUAL_SLOW_CM = 40;
+    constexpr uint16_t MANUAL_STOP_CM = 15;
+    constexpr uint8_t MANUAL_MIN_SPEED = 60;
 }
 
 /**
