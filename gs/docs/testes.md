@@ -41,7 +41,7 @@ Evidências em [`logs/`](logs):
 | A2 | Obstáculo à frente | desacelera e desvia | ✅ **7 obstáculos** (mão/objetos a 1–31 cm) → ré + giro. ⏳ repetir com uma caixa no vídeo |
 | A3 | Trecho crítico | modo cauteloso | ✅ `trecho_critico` após 2 barreiras em 30 s; em seguida, "livre" a **vel 110** em vez de 150 |
 | A4 | Robô levantado com patrulha ativa | não avança | ⏳ (P2 confirma a detecção; falta filmar as rodas paradas) |
-| A7 | Seta para frente do controle até a borda / até um obstáculo | freia no desnível; desacelera e para a 15 cm do obstáculo; só volta a andar com um novo aperto | ⏳ firmware gravado na R3 em 15/11; filmar |
+| A7 | Seta para frente do controle até a borda / até um obstáculo | freia no desnível; desacelera e para a 15 cm do obstáculo; só volta a andar com um novo aperto | ✅ testado em 15/11 com o controle (borda de um pano sobre a mesa e obstáculo) |
 | A5 | Caminho livre | frente rápido, LED verde | ✅ `livre -> dir 1 vel 150` |
 | A6 | Standby | modelo roda, mas sem ocorrências | ✅ após o ajuste do item 6 |
 
