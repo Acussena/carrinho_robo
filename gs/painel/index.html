@@ -52,6 +52,7 @@
     <span id="conexao" class="pill">conectando…</span>
     <span id="iainfo" class="pill">IA</span>
     <label class="row" style="gap:4px"><input type="checkbox" id="voz" checked> voz</label>
+    <button onclick="testarVoz()" title="Fala uma frase de teste (também libera o áudio no navegador)">Testar voz</button>
     <button onclick="reiniciar()" title="Zera ocorrências, alertas e contadores para uma nova patrulha">Reiniciar painel</button>
   </div>
 </header>
@@ -132,13 +133,25 @@ function barra(nome, v, max, limiar) {
   return `<div class="row" style="margin:4px 0"><span class="lbl">${nome}</span><div class="bar"><i style="width:${p}%"></i>${l}</div><span class="val">${v}</span></div>`;
 }
 
+let falaPendente = null;
 function falar(texto) {
   if (!$("voz").checked || !("speechSynthesis" in window) || !texto) return;
-  const u = new SpeechSynthesisUtterance(texto);
-  u.lang = "pt-BR";
-  const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith("pt"));
-  if (v) u.voice = v;
-  speechSynthesis.speak(u);
+  // o Chrome descarta em silêncio um speak() feito logo após cancel(): espera um instante
+  clearTimeout(falaPendente);
+  falaPendente = setTimeout(() => {
+    const u = new SpeechSynthesisUtterance(texto);
+    u.lang = "pt-BR";
+    u.rate = 1.1;
+    const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith("pt"));
+    if (v) u.voice = v;
+    speechSynthesis.resume();   // destrava a fila se o navegador a deixou pausada
+    speechSynthesis.speak(u);
+  }, 150);
+}
+
+function testarVoz() {
+  calar();
+  falar("Teste de voz do Fiscal de Calçadas.");
 }
 
 async function atualizar() {
@@ -212,6 +225,7 @@ async function atualizar() {
 }
 
 function calar() {
+  clearTimeout(falaPendente);
   if ("speechSynthesis" in window) speechSynthesis.cancel();
 }
 
