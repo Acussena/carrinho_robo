@@ -598,8 +598,7 @@ void loop() {
       if (pertoDesde == 0) pertoDesde = millis();
       if (millis() - pertoDesde > PARADO_PERTO_MAX_MS) {
         pertoDesde = 0;
-        Serial.printf("# regra de seguranca: %d cm ha %lu ms -> desvia
-", distanciaRecente(), PARADO_PERTO_MAX_MS);
+        Serial.printf("# regra de seguranca: %d cm ha %lu ms -> desvia\n", distanciaRecente(), PARADO_PERTO_MAX_MS);
         registrarEvento(EV_OBSTACULO, 0);   // confiança 0 = decidido pela regra, não pelo modelo
         classeAtual = OBSTACULO;
         manobra = RE;
