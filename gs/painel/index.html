@@ -120,6 +120,7 @@
 <script>
 const $ = id => document.getElementById(id);
 let ultimoAlertaFalado = null;
+let patrulhaAnterior = null;
 const NOMES = {obstaculo: "Obstáculo", desnivel: "Desnível", trecho_critico: "Trecho crítico", bateria_baixa: "Bateria baixa",
   falha_r3: "Falha na R3", r3_reconectada: "R3 reconectada", sensor_piso_indisponivel: "Sensor de piso indisponível"};
 
@@ -191,15 +192,31 @@ async function atualizar() {
   }).join("");
 
   // fala os alertas novos (na primeira carga, não repete os antigos)
-  const novos = d.alertas.filter(a => ultimoAlertaFalado !== null && a.id > ultimoAlertaFalado && a.falar);
+  // a voz acompanha o robô: patrulha parou (botão Parar, tecla OK) -> cala na hora
+  const patrulhando = (d.status || {}).patrulhando;
+  if (patrulhaAnterior === true && patrulhando === false) calar();
+  patrulhaAnterior = patrulhando;
+  // só alertas recentes (até 10 s) e, se vierem vários juntos, só o mais novo
+  const agora = Date.now() / 1000;
+  const novos = d.alertas.filter(a => ultimoAlertaFalado !== null && a.id > ultimoAlertaFalado && a.falar && (!a.ts || agora - a.ts < 10));
   if (d.alertas.length) {
     if (ultimoAlertaFalado === null) ultimoAlertaFalado = d.alertas[d.alertas.length - 1].id;
     else ultimoAlertaFalado = Math.max(ultimoAlertaFalado, d.alertas[d.alertas.length - 1].id);
   } else if (ultimoAlertaFalado === null) ultimoAlertaFalado = 0;
-  novos.forEach(a => falar(a.texto));
+  if (novos.length) {
+    const ultimo = novos[novos.length - 1];
+    if (patrulhando === false && !ultimo.interromper && ultimo.origem !== "resposta") return;
+    calar();                       // pula o que estava falando: vale o alerta mais recente
+    falar(ultimo.texto);
+  }
+}
+
+function calar() {
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
 }
 
 async function cmd(acao, valor) {
+  if (acao === "parar" || acao === "pausar") calar();
   await fetch(`/api/cmd?acao=${encodeURIComponent(acao)}&valor=${encodeURIComponent(valor || 0)}`);
 }
 

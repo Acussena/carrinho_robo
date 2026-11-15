@@ -99,7 +99,7 @@ class Estado:
             self.ocorrencias = []
             self.alertas = []
             self.novo_log()
-        self.adicionar_alerta("Painel reiniciado. Pronto para uma nova patrulha.", "info", True)
+        self.adicionar_alerta("Painel reiniciado. Pronto para uma nova patrulha.", "info", True, "sistema", interromper=True)
 
     def contagem(self):
         cont = {}
@@ -115,14 +115,15 @@ class Estado:
     def adicionar_ocorrencia(self, ev):
         with self.trava:
             ev["hora"] = agora()
+            ev["recebido"] = time.time()
             ev["analise"] = None
             self.ocorrencias.append(ev)
             return ev
 
-    def adicionar_alerta(self, texto, severidade="info", falar=True, origem="sistema"):
+    def adicionar_alerta(self, texto, severidade="info", falar=True, origem="sistema", interromper=False):
         with self.trava:
-            alerta = {"id": self.proximo_alerta, "hora": agora(), "texto": texto,
-                      "severidade": severidade, "falar": falar, "origem": origem}
+            alerta = {"id": self.proximo_alerta, "hora": agora(), "ts": time.time(), "texto": texto,
+                      "severidade": severidade, "falar": falar, "origem": origem, "interromper": interromper}
             self.proximo_alerta += 1
             self.alertas.append(alerta)
             self.alertas = self.alertas[-100:]
@@ -180,9 +181,16 @@ class IA:
         # sem cota (429) ou lento, o próximo é tentado
         self.modelos = [m for m in [modelo_env, "gemini-3.5-flash", "gemini-3.5-flash-lite",
                                     "gemini-flash-lite-latest", "gemini-flash-latest"] if m]
+        # alertas em tempo real usam modelos "lite" (~1 s); relatório e perguntas usam o modelo maior
+        modelo_rapido_env = os.environ.get("GEMINI_MODEL_RAPIDO", "").strip()
+        self.modelos_rapidos = [m for m in [modelo_rapido_env, "gemini-3.5-flash-lite", "gemini-flash-lite-latest",
+                                            "gemini-3.1-flash-lite", "gemini-3.5-flash"] if m]
         self.modelo_ok = None
+        self.modelo_rapido_ok = None
         self.ultimo_erro = ""
         self.chamadas = 0
+        self.ultimo_modelo = None
+        self.ultima_latencia = 0.0
         self.fila = queue.Queue()
         self.ultimo_por_tipo = {}
         threading.Thread(target=self._trabalhar, daemon=True).start()
@@ -192,11 +200,11 @@ class IA:
         return bool(self.chave)
 
     def info(self):
-        return {"llm": "Gemini" if self.chave else None, "modelo": self.modelo_ok,
+        return {"llm": "Gemini" if self.chave else None, "modelo": self.modelo_rapido_ok or self.modelo_ok,
                 "online": self.online, "ultimo_erro": self.ultimo_erro, "chamadas": self.chamadas}
 
     # ---------- chamada ao Gemini (REST, sem dependências) ----------
-    def _gemini(self, prompt, json_saida=True, temperatura=0.4):
+    def _gemini(self, prompt, json_saida=True, temperatura=0.4, rapido=False):
         if not self.chave:
             raise RuntimeError("sem GEMINI_API_KEY")
         corpo = {
@@ -207,7 +215,8 @@ class IA:
         if json_saida:
             corpo["generationConfig"]["responseMimeType"] = "application/json"
         # o modelo que funcionou por último vem primeiro, os outros ficam de reserva
-        modelos = ([self.modelo_ok] if self.modelo_ok else []) + [m for m in self.modelos if m != self.modelo_ok]
+        lista, ok = (self.modelos_rapidos, self.modelo_rapido_ok) if rapido else (self.modelos, self.modelo_ok)
+        modelos = ([ok] if ok else []) + [m for m in lista if m != ok]
         erro = None
         for modelo in modelos:
             url = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent" % modelo
@@ -217,7 +226,11 @@ class IA:
                 with urllib.request.urlopen(req, timeout=12) as resp:
                     dados = json.loads(resp.read().decode("utf-8"))
                 self.chamadas += 1
-                self.modelo_ok = modelo
+                if rapido:
+                    self.modelo_rapido_ok = modelo
+                else:
+                    self.modelo_ok = modelo
+                self.ultimo_modelo = modelo
                 self.ultimo_erro = ""
                 partes = dados["candidates"][0]["content"]["parts"]
                 return "".join(p.get("text", "") for p in partes)
@@ -276,13 +289,15 @@ class IA:
         ) % (self.estado.local, ev.get("hora"), ev["tipo"], DESCRICAO_EVENTO.get(ev["tipo"], ""),
              ev.get("dist"), ev.get("piso"), (resumo["status_atual"].get("piso") or {}).get("limiar", 550),
              ev.get("bateria"), ev.get("confianca"), json.dumps(resumo["contagem"], ensure_ascii=False))
-        texto = self._gemini(prompt)
+        inicio = time.time()
+        texto = self._gemini(prompt, rapido=True, temperatura=0.3)
+        self.ultima_latencia = round(time.time() - inicio, 1)
         texto = texto.strip().strip("`")
         if texto.startswith("json"):
             texto = texto[4:]
         dados = json.loads(texto)
         dados["severidade"] = str(dados.get("severidade", "media")).lower().replace("é", "e")
-        dados["fonte"] = "LLM %s" % self.modelo_ok
+        dados["fonte"] = "LLM %s (%.1f s)" % (self.ultimo_modelo, self.ultima_latencia)
         return dados
 
     def enfileirar(self, ev):
@@ -309,10 +324,15 @@ class IA:
                 self.ultimo_por_tipo[tipo] = (time.time(), analise)
             ev["analise"] = analise
             self.estado.salvar_csv(ev)
+            # a voz acompanha o robô: alerta atrasado (> 10 s) ou com o carrinho já parado
+            # fica só na tela e no log, não é falado
+            atrasado = time.time() - ev.get("recebido", time.time()) > 10
+            parado = self.estado.status.get("patrulhando") is False
+            falar = not atrasado and not parado
             self.estado.adicionar_alerta(analise.get("alerta_voz", ""), analise.get("severidade", "media"),
-                                         True, analise.get("fonte", ""))
+                                         falar, analise.get("fonte", "") + ("" if falar else " (não falado: atrasado ou robô parado)"))
             print("[IA] %s -> %s | %s" % (tipo, analise.get("severidade"), analise.get("alerta_voz")))
-            time.sleep(1.5)   # respeita o limite de requisições do plano gratuito
+            time.sleep(0.5)   # espaço mínimo entre chamadas (limite do plano gratuito)
 
     # ---------- relatório e perguntas ----------
     def relatorio(self):
@@ -327,7 +347,7 @@ class IA:
                 "Recomendações priorizadas, Estado do robô. Use somente os dados abaixo.\n\n%s"
             ) % json.dumps(resumo, ensure_ascii=False, indent=1)
             texto = self._gemini(prompt, json_saida=False, temperatura=0.3)
-            fonte = "LLM %s" % self.modelo_ok
+            fonte = "LLM %s" % self.ultimo_modelo
         except Exception:
             texto = self._relatorio_offline(resumo)
             fonte = "regras (offline)"
@@ -388,7 +408,8 @@ class Fonte:
         if ev["tipo"] in EVENTOS_ANALISADOS:
             self.ia.enfileirar(ev)
         elif ev["tipo"] == "patrulha":
-            self.estado.adicionar_alerta("Patrulha iniciada." if ev.get("confianca") else "Patrulha encerrada.", "info")
+            self.estado.adicionar_alerta("Patrulha iniciada." if ev.get("confianca") else "Patrulha encerrada.", "info",
+                                         True, "sistema", interromper=True)
 
     def vigiar_conexao(self):
         while True:

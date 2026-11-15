@@ -87,6 +87,7 @@ O modelo responde em **JSON** (`responseMimeType: application/json`):
 ```
 
 - O **alerta_voz** é falado pelo navegador (Web Speech API, voz pt-BR) e fica na lista de alertas.
+- **A voz acompanha o robô:** os alertas em tempo real usam um modelo *lite* (`gemini-3.5-flash-lite`, ~1,1 s por análise); relatório e perguntas usam o `gemini-3.5-flash`. Ao parar a patrulha (botão Parar ou tecla OK), a voz se cala na hora. Alertas com mais de 10 s de atraso, ou que chegam com o robô parado, ficam só na tela e no log. Se chegarem vários juntos, só o mais recente é falado.
 - Severidade, explicação e recomendação vão para o cartão da ocorrência e para o **CSV** (`gs/painel/saida/ocorrencias_*.csv`).
 - **Pergunte à IA:** perguntas livres ("esta calçada é acessível?") são respondidas com base nos dados da patrulha.
 - **Relatório:** o LLM gera um relatório Markdown (resumo, tabela por gravidade, pontos críticos, recomendações priorizadas), salvo em `gs/painel/saida/relatorio_*.md`.
