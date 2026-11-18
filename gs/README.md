@@ -1,19 +1,24 @@
-# GS — Fiscal de Calçadas: robô CitizenTech de acessibilidade urbana
+# GS — Boca de Lobo: robô CitizenTech contra alagamentos
 
-Evolução do carrinho do CP2 (TinyML com o ultrassônico) para ajudar a **identificar barreiras de acessibilidade em calçadas, corredores e prédios públicos**. O robô percorre o trajeto sozinho e detecta **obstáculos** e **desníveis** (buraco, degrau, meio-fio sem rampa). Ele **se adapta** ao que encontra, e uma **IA generativa** transforma as leituras em **alertas falados e num relatório para a prefeitura**.
+Evolução do carrinho do CP2 (TinyML com o ultrassônico) para **inspecionar sarjetas e bocas de lobo antes de cada temporal** e descobrir quais estão entupidas de lixo e folhas. O robô percorre o trajeto sozinho, detecta **bloqueios à frente** (acúmulo de material) e **vãos no piso** (a boca de lobo aberta), **se adapta** ao que encontra e classifica cada ponto como **livre, atenção ou crítico**. Uma **IA generativa** cruza as ocorrências com a previsão de chuva e avisa quem precisa agir: a **equipe de limpeza**, com um relatório do que desentupir primeiro, e os **moradores**, com alertas falados de onde não passar.
 
 🎥 **Vídeo de demonstração:** _(colar aqui o link do YouTube/Drive)_
 
 ## 1. O problema (CitizenTech)
 
-- Calçadas com buracos, degraus e meio-fios sem rampa são a principal barreira de mobilidade para **pessoas com deficiência, idosos e quem empurra carrinho de bebê**. A NBR 9050 exige uma faixa livre e sem desníveis.
-- O mapeamento dessas barreiras ainda é feito sobretudo por vistoria manual ou por reclamação de cidadãos, o que é lento e incompleto.
-- **Proposta:** um robô de baixo custo (o kit do curso, sem peças novas) que percorre o trajeto e:
-  1. **percebe** obstáculos (ultrassônico + TinyML) e desníveis no piso (**sensor adicional da GS**);
-  2. **decide** sozinho o que fazer: desviar, recuar da borda, andar com cautela num trecho ruim, economizar bateria;
-  3. **interpreta e comunica**: um LLM classifica a gravidade de cada ocorrência, avisa por voz quem está no local e gera um relatório com recomendações para a gestão pública.
+- **Cidadão:** morador de região que alaga todo verão, principalmente em áreas baixas e periféricas. **Área:** segurança e emergências (enchentes).
+- Uma das causas mais comuns do alagamento é simples: **bocas de lobo entupidas** de lixo e folhas, que impedem a água da chuva de escoar.
+- Hoje ninguém sabe quais estão entupidas até a água subir. A limpeza costuma chegar depois do estrago.
+- **Proposta:** um robô de baixo custo (o kit do curso, sem peças novas) que, antes do temporal, percorre as sarjetas e:
+  1. **percebe** acúmulo de material à frente (ultrassônico + TinyML) e vãos no piso (**sensor adicional da GS**, apontado para baixo);
+  2. **decide** sozinho o que fazer: desacelerar, desviar, recuar da borda, andar com cautela num trecho ruim, economizar bateria;
+  3. **classifica e comunica**: cada ponto vira **livre / atenção / crítico**; um LLM avalia a gravidade, prioriza os pontos críticos quando há previsão de chuva forte, avisa por voz e gera o relatório para a equipe de limpeza.
 
-O mesmo uso vale para o campo: trilhas e acessos de escolas rurais, ou postos de saúde com piso irregular.
+| Nível | O que o robô percebe | O que ele faz |
+|---|---|---|
+| **Livre** | sarjeta desobstruída à frente (TinyML `livre`) | segue em frente |
+| **Atenção** | acúmulo de material se aproximando (TinyML `aproximando`) | desacelera |
+| **Crítico** | bloqueio parado à frente (TinyML `obstaculo`) ou vão no piso (sensor de piso) | para, recua, desvia e registra a ocorrência |
 
 ## 2. O que mudou em relação ao CP2
 
@@ -90,7 +95,7 @@ Tudo do kit **LAFVIN R3 Smart Robot Car com câmera** (R$ 389,00, ver [planilha 
 | [`r3/carrinho_r3/`](r3/carrinho_r3) | firmware da R3: base do CP2 + sensor de piso, bateria, segurança de desnível, comandos 101/111/112. Mudanças marcadas com `GS` |
 | [`esp32/carrinho_gs/`](esp32/carrinho_gs) | firmware da ESP32-S3: TinyML do CP2 + desnível + autonomia + ocorrências + Wi-Fi/API |
 | [`painel/`](painel) | painel web com IA (Python, só biblioteca padrão; `pyserial` para USB) |
-| [`docs/`](docs) | [integração sensores ↔ IA](docs/integracao_sensores_ia.md) · [testes](docs/testes.md) · [roteiro do vídeo](docs/roteiro_video.md) |
+| [`docs/`](docs) | [integração sensores ↔ IA](docs/integracao_sensores_ia.md) · [testes](docs/testes.md) |
 | [`../cp2/`](../cp2) | dataset, treino no Edge Impulse e biblioteca do modelo TinyML (reaproveitados) |
 
 ## 6. Como instalar e executar
@@ -128,7 +133,7 @@ Com a ESP32 no USB, o Monitor Serial (115200) mostra o IP: `# wifi conectado: ht
 3. Rode `gs/painel/PAINEL.bat` e escolha **1** (Wi-Fi, IP da ESP32), **2** (USB, porta COM) ou **3** (simulação). Ou direto:
 
 ```bash
-python gs/painel/painel.py --ip 192.168.0.50 --local "Calçada da Av. Paulista, 1100"
+python gs/painel/painel.py --ip 192.168.0.50 --local "Sarjetas da Rua das Flores"
 ```
 
 4. Abra <http://localhost:8000>, deixe **voz** marcada e clique em **Iniciar patrulha** (ou aperte **0** no controle IR).
@@ -150,7 +155,10 @@ Plano e resultados: **[docs/testes.md](docs/testes.md)**. Cobre a leitura do sen
 
 ## 8. Limitações e próximos passos
 
+- **Sem sensor de chuva ou de nível de água:** o kit não tem. A previsão de chuva entra hoje pela pergunta à IA no painel; o próximo passo é um sensor de nível de água e a previsão do tempo automática.
+- **Ultrassônico apontado para frente:** ele detecta o acúmulo à frente, mas não mede a profundidade da sarjeta. Um segundo ultrassônico apontado para baixo faria essa medição (o atual não pode ser virado sem retreinar o TinyML).
+- **Piso de vidro:** o infravermelho atravessa, o robô entende "sem piso" e não avança (falha segura).
 - **Piso muito escuro** (asfalto molhado, faixa preta) reflete pouco IR e pode parecer "sem piso". O limiar ajustável e a regra de 2 dos 3 sensores reduzem o problema; um próximo passo é treinar um modelo TinyML com as leituras de piso.
-- **Sem localização:** as ocorrências têm horário, mas não coordenadas. O celular que roda o painel poderia fornecer o GPS.
+- **Sem localização:** as ocorrências têm horário, mas não coordenadas. O GPS do celular que roda o painel permitiria mapear cada boca de lobo.
 - **Câmera:** o módulo ESP32-S3 tem câmera OV3660. Enviar uma foto de cada ocorrência ao LLM multimodal é a evolução natural.
 - O ultrassônico do CP2 tem as limitações já documentadas em [cp2/docs/integracao.md](../cp2/docs/integracao.md#limitações-conhecidas).

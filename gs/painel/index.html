@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fiscal de Calçadas</title>
+<title>Boca de Lobo</title>
 <style>
   :root {
     --bg: #f4f6f8; --card: #ffffff; --txt: #1b2430; --sub: #5d6b7a; --borda: #dde3ea;
@@ -47,7 +47,7 @@
 </head>
 <body>
 <header>
-  <h1>Fiscal de Calçadas <small id="local"></small></h1>
+  <h1>Boca de Lobo <small id="local"></small></h1>
   <div class="row">
     <span id="conexao" class="pill">conectando…</span>
     <span id="iainfo" class="pill">IA</span>
@@ -111,9 +111,9 @@
   <section class="card wide">
     <h2>Pergunte à IA</h2>
     <div class="row">
-      <input id="pergunta" style="flex:1;min-width:200px" placeholder="Ex.: Esta calçada é acessível para cadeirantes?">
+      <input id="pergunta" style="flex:1;min-width:200px" placeholder="Ex.: A previsão é de chuva forte hoje. Quais pontos limpar primeiro?">
       <button class="prim" onclick="perguntar()">Perguntar</button>
-      <button onclick="relatorio()">Gerar relatório para a prefeitura</button>
+      <button onclick="relatorio()">Gerar relatório para a equipe de limpeza</button>
     </div>
     <pre id="saida" style="display:none"></pre>
   </section>
@@ -175,12 +175,15 @@ setInterval(() => {
 }, 250);
 
 // terminou uma frase: fala o alerta que ficou esperando, se ainda for atual
+// alerta vindo do carrinho no controle remoto (setas): falado mesmo fora da patrulha
+function manual(a) { return (a.origem || "").includes("controle remoto"); }
+
 function falarProximo() {
   const a = proximoAlerta;
   proximoAlerta = null;
   if (!a || falando) return;
   const recente = !a.ts || Date.now() / 1000 - a.ts < 10;
-  if (recente && (patrulhaAtual !== false || a.interromper || a.origem === "resposta"))
+  if (recente && (patrulhaAtual !== false || a.interromper || a.origem === "resposta" || manual(a)))
     falar(a.texto, a.interromper || a.origem === "resposta");
 }
 
@@ -198,7 +201,7 @@ function anunciar(a) {
 
 function testarVoz() {
   calar();
-  falar("Teste de voz do Fiscal de Calçadas.");
+  falar("Teste de voz do robô Boca de Lobo.");
 }
 
 async function atualizar() {
@@ -269,7 +272,7 @@ async function atualizar() {
   } else if (ultimoAlertaFalado === null) ultimoAlertaFalado = 0;
   if (novos.length) {
     const ultimo = novos[novos.length - 1];
-    if (patrulhando === false && !ultimo.interromper && ultimo.origem !== "resposta") return;
+    if (patrulhando === false && !ultimo.interromper && ultimo.origem !== "resposta" && !manual(ultimo)) return;
     anunciar(ultimo);
   }
 }

@@ -48,6 +48,8 @@ Exemplo de linha: `48213,37,212,198,240,78,0,6` = 48,2 s, 37 cm à frente, piso 
 - **obstáculo** → reduz a velocidade a partir de 40 cm e para a 15 cm;
 - depois de parar, segurar a seta **não** faz o carrinho andar: só um **novo aperto** libera. Mesmo assim, ele não vai para frente enquanto o sensor ainda vê o desnível. Ré e giros continuam livres, para sair da borda.
 
+**Voz também no controle remoto:** fora da patrulha a ESP32 não registra ocorrências, então o painel vigia a telemetria a 20 Hz. Quando o piso passa do limiar (ou a distância cai abaixo de 15 cm), ele cria a ocorrência marcada como "controle remoto", fala na hora "Cuidado! Desnível à frente!" e manda o evento para o LLM. Cada tipo tem um intervalo mínimo de 4 s entre avisos.
+
 ## 3. ESP32: fusão TinyML + piso + bateria
 
 Ordem de prioridade a cada volta do `loop()`:
@@ -85,10 +87,10 @@ O modelo responde em **JSON** (`responseMimeType: application/json`):
 ```json
 {
   "severidade": "alta",
-  "categoria": "desnível sem rampa",
-  "alerta_voz": "Atenção: desnível no piso à frente, possível degrau sem rampa. Cadeirantes devem buscar outro acesso.",
-  "explicacao": "Dois dos três sensores de piso passaram de 900, indicando ausência de piso logo à frente.",
-  "recomendacao": "Instalar rampa conforme NBR 9050 ou sinalizar o desnível com piso tátil de alerta."
+  "categoria": "boca de lobo / vão no piso",
+  "alerta_voz": "Atenção: vão no piso à frente. Ponto crítico, evite passar por aqui se chover forte.",
+  "explicacao": "Um dos três sensores de piso passou do limiar de 550, indicando ausência de piso logo à frente.",
+  "recomendacao": "Equipe de limpeza: verificar e desentupir esta boca de lobo antes da chuva prevista."
 }
 ```
 

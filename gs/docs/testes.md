@@ -42,6 +42,7 @@ Evidências em [`logs/`](logs):
 | A3 | Trecho crítico | modo cauteloso | ✅ `trecho_critico` após 2 barreiras em 30 s; em seguida, "livre" a **vel 110** em vez de 150 |
 | A4 | Robô levantado com patrulha ativa | não avança | ⏳ (P2 confirma a detecção; falta filmar as rodas paradas) |
 | A7 | Seta para frente do controle até a borda / até um obstáculo | freia no desnível; desacelera e para a 15 cm do obstáculo; só volta a andar com um novo aperto | ✅ testado em 15/11 com o controle (borda de um pano sobre a mesa e obstáculo) |
+| A8 | Voz com o controle remoto (fora da patrulha) | ao chegar no desnível pela seta, a voz fala "Cuidado! Desnível à frente!" | ✅ testado pelo grupo em 17/11 (painel lendo o robô a 20 Hz) |
 | A5 | Caminho livre | frente rápido, LED verde | ✅ `livre -> dir 1 vel 150` |
 | A6 | Standby | modelo roda, mas sem ocorrências | ✅ após o ajuste do item 6 |
 

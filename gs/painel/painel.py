@@ -1,5 +1,5 @@
 """
-GS CitizenTech - Painel do "Fiscal de Calçadas" com IA (LLM Gemini + voz).
+GS CitizenTech - Painel do robô "Boca de Lobo" com IA (LLM Gemini + voz).
 
 Recebe a telemetria e as ocorrências da ESP32 do carrinho e:
   1. mostra tudo ao vivo num painel web (http://localhost:8000);
@@ -162,12 +162,14 @@ class Estado:
 # ============================ IA (LLM Gemini + regras offline) ============================
 
 SISTEMA = (
-    "Você é a IA embarcada no 'Fiscal de Calçadas', um robô CitizenTech que percorre calçadas, "
-    "corredores e passagens públicas para mapear barreiras de acessibilidade (para pessoas com "
-    "deficiência, idosos, carrinhos de bebê) e apoiar a manutenção urbana pela prefeitura. "
+    "Você é a IA do 'Boca de Lobo', um robô CitizenTech que inspeciona sarjetas e bocas de lobo "
+    "antes de temporais para descobrir quais estão entupidas de lixo e folhas. Quando há previsão "
+    "de chuva forte, você prioriza os pontos críticos e avisa quem precisa agir: a equipe de limpeza "
+    "(o que desentupir primeiro) e os moradores de áreas que alagam (onde não passar). "
+    "Classificação de cada ponto: livre, atenção ou crítico. "
     "Sensores: ultrassônico HC-SR04 com modelo TinyML (classes livre/aproximando/obstaculo), "
     "sensor de piso infravermelho de 3 canais (valor analógico 0-1023; acima do limiar = sem piso: "
-    "buraco, degrau, meio-fio) e medição da bateria. Responda sempre em português do Brasil, "
+    "vão da boca de lobo, buraco, degrau) e medição da bateria. Responda sempre em português do Brasil, "
     "de forma objetiva, sem inventar dados que não foram informados."
 )
 
@@ -254,12 +256,12 @@ class IA:
         tipo = ev["tipo"]
         dist = ev.get("dist")
         regras = {
-            "desnivel": ("alta", "Atenção: desnível detectado no piso. Possível buraco, degrau ou meio-fio sem rampa. Robô parou e recuou.",
-                         "Registrar o ponto para a prefeitura e sinalizar o local; avaliar rampa de acessibilidade ou reparo do piso."),
-            "obstaculo": ("media", "Obstáculo bloqueando a passagem a %s centímetros. Desviando." % dist,
-                          "Verificar se o objeto bloqueia a faixa livre da calçada (mínimo de 1,20 m) e solicitar remoção."),
+            "desnivel": ("alta", "Atenção: vão no piso à frente, possível boca de lobo aberta ou buraco. Robô parou e recuou.",
+                         "Registrar o ponto para a equipe de limpeza e sinalizar o local para os moradores."),
+            "obstaculo": ("media", "Acúmulo de material na sarjeta a %s centímetros. Desviando." % dist,
+                          "Enviar a equipe de limpeza para retirar o lixo e as folhas antes da chuva."),
             "trecho_critico": ("alta", "Trecho crítico: várias barreiras seguidas. Reduzindo a velocidade.",
-                               "Priorizar a vistoria deste trecho; a concentração de barreiras indica rota inacessível."),
+                               "Priorizar a limpeza deste trecho: vários bloqueios seguidos aumentam o risco de alagamento."),
             "bateria_baixa": ("media", "Bateria baixa. Velocidade reduzida para economizar energia.",
                               "Encerrar a patrulha e recarregar as baterias."),
             "falha_r3": ("alta", "Falha de comunicação com a placa de controle. Motores parados por segurança.",
@@ -281,11 +283,11 @@ class IA:
             "(limiar de 'sem piso' = %s); bateria = %s V; confiança do modelo = %s.\n"
             "Histórico desta patrulha (contagem por tipo): %s\n\n"
             "Responda APENAS com um JSON com as chaves:\n"
-            "  severidade: 'baixa' | 'media' | 'alta' (risco para pedestres com deficiência ou mobilidade reduzida)\n"
+            "  severidade: 'baixa' | 'media' | 'alta' (risco de alagamento se chover forte: baixa = livre, media = atenção, alta = crítico)\n"
             "  categoria: uma categoria curta do problema urbano\n"
             "  alerta_voz: frase curta (máx. 25 palavras) para ser FALADA em voz alta agora, para quem está no local\n"
             "  explicacao: 1 frase explicando como os sensores levaram a essa conclusão\n"
-            "  recomendacao: 1 ação concreta para a prefeitura/gestão do espaço\n"
+            "  recomendacao: 1 ação concreta para a equipe de limpeza ou aviso aos moradores\n"
         ) % (self.estado.local, ev.get("hora"), ev["tipo"], DESCRICAO_EVENTO.get(ev["tipo"], ""),
              ev.get("dist"), ev.get("piso"), (resumo["status_atual"].get("piso") or {}).get("limiar", 550),
              ev.get("bateria"), ev.get("confianca"), json.dumps(resumo["contagem"], ensure_ascii=False))
@@ -327,13 +329,13 @@ class IA:
             # a voz acompanha o robô: alerta atrasado (> 10 s) ou com o carrinho já parado
             # fica só na tela e no log, não é falado
             atrasado = time.time() - ev.get("recebido", time.time()) > 10
-            parado = self.estado.status.get("patrulhando") is False
+            parado = self.estado.status.get("patrulhando") is False and not ev.get("manual")
             falar = not atrasado and not parado
             # desnível repetido: o aviso imediato já foi falado, a repetição fica só na tela
             if tipo == "desnivel" and "(repetição)" in analise.get("fonte", ""):
                 falar = False
             self.estado.adicionar_alerta(analise.get("alerta_voz", ""), analise.get("severidade", "media"),
-                                         falar, analise.get("fonte", "") + ("" if falar else " (não falado: atrasado ou robô parado)"))
+                                         falar, analise.get("fonte", "") + (" · controle remoto" if ev.get("manual") else "") + ("" if falar else " (não falado: atrasado ou robô parado)"))
             print("[IA] %s -> %s | %s" % (tipo, analise.get("severidade"), analise.get("alerta_voz")))
             time.sleep(0.5)   # espaço mínimo entre chamadas (limite do plano gratuito)
 
@@ -345,23 +347,23 @@ class IA:
             if not self.online:
                 raise RuntimeError("offline")
             prompt = (
-                "Gere um relatório técnico em Markdown para a prefeitura/gestão do espaço sobre esta patrulha de "
-                "acessibilidade. Seções: Resumo, Ocorrências por gravidade (tabela), Pontos críticos, "
-                "Recomendações priorizadas, Estado do robô. Use somente os dados abaixo.\n\n%s"
+                "Gere um relatório técnico em Markdown para a equipe de limpeza urbana sobre esta inspeção de "
+                "sarjetas e bocas de lobo antes da chuva. Seções: Resumo, Pontos por nível (livre/atenção/crítico, tabela), "
+                "Pontos críticos, O que desentupir primeiro, Aviso aos moradores, Estado do robô. Use somente os dados abaixo.\n\n%s"
             ) % json.dumps(resumo, ensure_ascii=False, indent=1)
             texto = self._gemini(prompt, json_saida=False, temperatura=0.3)
             fonte = "LLM %s" % self.ultimo_modelo
         except Exception:
             texto = self._relatorio_offline(resumo)
             fonte = "regras (offline)"
-        texto += "\n\n---\n_Gerado pelo painel do Fiscal de Calçadas em %s (%s)._\n" % (
+        texto += "\n\n---\n_Gerado pelo painel do Boca de Lobo em %s (%s)._\n" % (
             datetime.now().strftime("%d/%m/%Y %H:%M"), fonte)
         with open(nome, "w", encoding="utf-8") as f:
             f.write(texto)
         return {"arquivo": nome, "texto": texto, "fonte": fonte}
 
     def _relatorio_offline(self, r):
-        linhas = ["# Relatório de patrulha - Fiscal de Calçadas", "",
+        linhas = ["# Relatório de inspeção - Boca de Lobo", "",
                   "**Local:** %s  " % r["local"], "**Início:** %s  " % r["inicio"],
                   "**Duração:** %s min" % r["duracao_min"], "", "## Ocorrências", "",
                   "| Tipo | Quantidade |", "|---|---|"]
@@ -402,6 +404,36 @@ class Fonte:
         self.ia = ia
         self.ultimo_id = 0
         self.estava_conectado = None
+        self.id_manual = 100000
+        self.piso_antes = False
+        self.perto_antes = False
+        self.ultimo_manual = {}
+
+    def vigiar_manual(self, status):
+        """Fora da patrulha (carrinho no controle remoto), a ESP32 não gera ocorrências.
+        O painel acompanha os sensores ao vivo e avisa por voz: desnível na hora e obstáculo a 15 cm."""
+        if status.get("patrulhando") is not False:
+            self.piso_antes = self.perto_antes = False
+            return
+        piso = status.get("piso") or {}
+        limiar = piso.get("limiar") or 550
+        # flag da R3 ou qualquer sensor acima do limiar (pega a borda mesmo numa leitura isolada)
+        desnivel = bool(piso.get("disponivel") and (piso.get("desnivel") or
+                        max(piso.get("l", 0), piso.get("m", 0), piso.get("r", 0)) >= limiar))
+        dist = status.get("dist_cm") or 999
+        perto = 0 < dist <= 15
+        for tipo, agora_ativo, antes in (("desnivel", desnivel, self.piso_antes), ("obstaculo", perto, self.perto_antes)):
+            if agora_ativo and not antes and time.time() - self.ultimo_manual.get(tipo, 0) > 4:
+                self.ultimo_manual[tipo] = time.time()
+                self.id_manual += 1
+                ev = {"id": self.id_manual, "t": int(time.time() * 1000), "tipo": tipo, "dist": dist,
+                      "piso": [piso.get("l", 0), piso.get("m", 0), piso.get("r", 0)],
+                      "bateria": status.get("bateria_v", 0), "confianca": 1.0, "manual": True}
+                ev = self.estado.adicionar_ocorrencia(ev)
+                if tipo == "desnivel":
+                    self.estado.adicionar_alerta("Cuidado! Desnível à frente!", "alta", True, "sensor (controle remoto)", interromper=True)
+                self.ia.enfileirar(ev)
+        self.piso_antes, self.perto_antes = desnivel, perto
 
     def novo_evento(self, ev):
         if ev.get("id", 0) <= self.ultimo_id:
@@ -449,6 +481,7 @@ class FonteHTTP(Fonte):
             try:
                 status = self._get("/status")
                 self.estado.atualizar_status(status)
+                self.vigiar_manual(status)
                 ultimo = status.get("ultimo_evento", 0)
                 if ultimo < self.ultimo_id:
                     self.ultimo_id = 0       # ESP32 reiniciou: recomeça a contagem
@@ -457,7 +490,8 @@ class FonteHTTP(Fonte):
                         self.novo_evento(ev)
             except Exception:
                 pass
-            time.sleep(0.2)   # 5 consultas por segundo: o alerta de desnível sai rápido
+            # no controle remoto o desnível dura só ~0,2 s (o carrinho freia e recua): 20 consultas por segundo
+            time.sleep(0.05 if self.estado.status.get("patrulhando") is False else 0.2)
 
     def comando(self, acao, valor=0):
         q = urllib.parse.urlencode({"acao": acao, "valor": valor})
@@ -480,7 +514,9 @@ class FonteSerial(Fonte):
                 continue
             if linha.startswith("@T "):
                 try:
-                    self.estado.atualizar_status(json.loads(linha[3:]))
+                    status = json.loads(linha[3:])
+                    self.estado.atualizar_status(status)
+                    self.vigiar_manual(status)
                 except ValueError:
                     pass
             elif linha.startswith("@E "):
@@ -639,7 +675,7 @@ def criar_handler(estado, ia, fonte):
 
 def main():
     carregar_env()
-    ap = argparse.ArgumentParser(description="Painel com IA do Fiscal de Calçadas (GS CitizenTech)")
+    ap = argparse.ArgumentParser(description="Painel com IA do robô Boca de Lobo (GS CitizenTech)")
     grupo = ap.add_mutually_exclusive_group(required=True)
     grupo.add_argument("--ip", help="IP da ESP32 no Wi-Fi (ex.: 192.168.0.50 ou fiscal.local)")
     grupo.add_argument("--porta", help="porta USB da ESP32 (ex.: COM5)")
@@ -661,7 +697,7 @@ def main():
     fonte.iniciar()
 
     print("=" * 60)
-    print(" Fiscal de Calçadas - painel com IA")
+    print(" Boca de Lobo - painel com IA")
     print(" Fonte de dados : %s" % fonte.nome)
     print(" IA             : %s" % ("Gemini (LLM)" if ia.online else "regras offline (sem GEMINI_API_KEY no .env)"))
     print(" Log            : %s" % estado.arquivo_csv)
