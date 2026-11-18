@@ -40,7 +40,7 @@ Evidências em [`logs/`](logs):
 | A1 | **Borda da mesa = degrau/meio-fio** | para, LED roxo, ré + giro, alerta falado | ✅ **4 desníveis** detectados e evitados (parada → ré → giro), inclusive com só 1 sensor na borda durante o giro. O LLM classificou todos como gravidade **alta** ([telemetria](logs/teste_borda_mesa_telemetria.txt)) |
 | A2 | Obstáculo à frente | desacelera e desvia | ✅ **7 obstáculos** (mão/objetos a 1–31 cm) → ré + giro. ⏳ repetir com uma caixa no vídeo |
 | A3 | Trecho crítico | modo cauteloso | ✅ `trecho_critico` após 2 barreiras em 30 s; em seguida, "livre" a **vel 110** em vez de 150 |
-| A4 | Robô levantado com patrulha ativa | não avança | ⏳ (P2 confirma a detecção; falta filmar as rodas paradas) |
+| A4 | Robô levantado com patrulha ativa | não avança | ✅ confirmado pelo grupo em 17/11: levantado, o carrinho não anda para frente |
 | A7 | Seta para frente do controle até a borda / até um obstáculo | freia no desnível; desacelera e para a 15 cm do obstáculo; só volta a andar com um novo aperto | ✅ testado em 15/11 com o controle (borda de um pano sobre a mesa e obstáculo) |
 | A8 | Voz com o controle remoto (fora da patrulha) | ao chegar no desnível pela seta, a voz fala "Cuidado! Desnível à frente!" | ✅ testado pelo grupo em 17/11 (painel lendo o robô a 20 Hz) |
 | A5 | Caminho livre | frente rápido, LED verde | ✅ `livre -> dir 1 vel 150` |
@@ -56,14 +56,14 @@ Evidências em [`logs/`](logs):
 | I4 | Pergunta em linguagem natural | ✅ "Esta calçada é acessível para cadeirantes?" respondida com base nos dados |
 | I5 | Relatório para a prefeitura | ✅ [relatorio_ia_teste_borda_mesa.md](logs/relatorio_ia_teste_borda_mesa.md) |
 | I6 | Simulação sem robô e regras offline sem chave | ✅ (`painel.py --simular`) |
-| I7 | LLM sem internet durante a patrulha | ⏳ desligar a internet do PC: as ocorrências devem seguir com `regras (offline)` |
+| I7 | LLM sem internet durante a patrulha | ✅ confirmado pelo grupo em 17/11: sem internet, as ocorrências seguem com `regras (offline)` |
 
 ## 5. Situações de falha
 
 | # | Teste | Esperado | Resultado |
 |---|---|---|---|
-| F1 | Cabo R3 ↔ ESP32 solto | motores param em ≤ 1 s; `falha_r3`; ao reconectar, `r3_reconectada` | ⏳ |
-| F2 | Wi-Fi caído | robô segue autônomo; painel avisa "sem dados do robô"; reconecta sozinho | ⏳ |
+| F1 | Cabo R3 ↔ ESP32 solto | motores param em ≤ 1 s; `falha_r3`; ao reconectar, `r3_reconectada` | ⏳ não confirmado na gravação (a parada pela R3 está no firmware: `TINYML_TIMEOUT_MS`) |
+| F2 | Wi-Fi caído | robô segue autônomo; painel avisa "sem dados do robô"; reconecta sozinho | ✅ confirmado pelo grupo em 17/11: sem Wi-Fi, o carrinho continua desviando sozinho |
 | F3 | R3 com firmware antigo | `sensor_piso_indisponivel` | não executado (exigiria regravar o CP2) |
 | F4 | Chave da bateria desligada (só USB, 4,5 V) | sem alarme falso | ✅ painel mostra "desligada (só USB)", após o ajuste do item 6 |
 | F5 | Sem chave do LLM | regras offline | ✅ |
