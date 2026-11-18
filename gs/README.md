@@ -2,7 +2,7 @@
 
 Evolução do carrinho do CP2 (TinyML com o ultrassônico) para **inspecionar sarjetas e bocas de lobo antes de cada temporal** e descobrir quais estão entupidas de lixo e folhas. O robô percorre o trajeto sozinho, detecta **bloqueios à frente** (acúmulo de material) e **vãos no piso** (a boca de lobo aberta), **se adapta** ao que encontra e classifica cada ponto como **livre, atenção ou crítico**. Uma **IA generativa** cruza as ocorrências com a previsão de chuva e avisa quem precisa agir: a **equipe de limpeza**, com um relatório do que desentupir primeiro, e os **moradores**, com alertas falados de onde não passar.
 
-🎥 **Vídeo de demonstração:** _(colar aqui o link do YouTube/Drive)_
+🎥 **Vídeo de demonstração:** **<https://youtu.be/Najr3mdQ9_c>**
 
 ## 1. O problema (CitizenTech)
 

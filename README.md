@@ -22,7 +22,7 @@
 
 📁 **Pasta da GS: [`gs/`](gs)** · leia primeiro o [README da GS](gs/README.md)
 
-🎥 **Vídeo de demonstração:** _(colar aqui o link do YouTube/Drive)_
+🎥 **Vídeo de demonstração:** **<https://youtu.be/Najr3mdQ9_c>**
 
 Antes de cada temporal, o robô percorre as sarjetas do bairro e descobre quais bocas de lobo estão entupidas de lixo e folhas. Quando a previsão indica chuva forte, a IA prioriza os pontos críticos e avisa quem precisa agir: a **equipe de limpeza**, para desentupir a tempo, e os **moradores de áreas que alagam**, para saberem onde não passar.
 
